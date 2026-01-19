@@ -27,9 +27,9 @@ export const PendingItems: React.FC<PendingItemsProps> = ({
       </div>
 
       <div className="space-y-3">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <div
-            key={item.id}
+            key={`${item.id}-${index}`}
             onClick={() => onItemClick?.(item)}
             className={cn(
               'flex items-center justify-between py-2 cursor-pointer hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors'

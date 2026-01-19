@@ -57,7 +57,7 @@ export const ContractsPage: React.FC = () => {
           sellerService.getContractStats(),
         ]);
         
-        setContracts(contractsData);
+        setContracts(Array.isArray(contractsData) ? contractsData : []);
         setStats({
           totalContracts: statsData.totalContracts,
           activeContracts: statsData.activeContracts,
@@ -75,11 +75,13 @@ export const ContractsPage: React.FC = () => {
     fetchData();
   }, []);
 
-  // Filter contracts based on search
-  const filteredContracts = contracts.filter((contract) =>
-    contract.contractNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contract.customerName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter contracts based on search - ensure contracts is always an array
+  const filteredContracts = Array.isArray(contracts) 
+    ? contracts.filter((contract) =>
+        contract.contractNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        contract.customerName?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
 
   return (
     <div className="min-h-screen">
