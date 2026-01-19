@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = 'https://da598fc283bd.ngrok-free.app/api';
+const API_BASE_URL = 'https://localhost:7234/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
