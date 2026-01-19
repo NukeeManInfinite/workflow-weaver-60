@@ -64,9 +64,25 @@ const getStatsForRole = (role: string) => {
 };
 
 export const DashboardPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
 
-  if (!user) return null;
+  console.log('DashboardPage - user:', user, 'isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">No user data available. Please login.</p>
+      </div>
+    );
+  }
 
   const stats = getStatsForRole(user.role);
 
