@@ -1,10 +1,18 @@
 import apiClient from '@/lib/api';
 import { AuthResponse, LoginCredentials, User } from '@/types/auth';
 
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  errors: string[] | null;
+}
+
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/login', credentials);
-    return response.data;
+    const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/login', credentials);
+    // Backend returns { success, message, data: { token, user }, errors }
+    return response.data.data;
   },
 
   async logout(): Promise<void> {
