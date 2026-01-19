@@ -5,108 +5,95 @@ import {
   PendingItem, 
   StatCardData 
 } from '@/types/seller';
+import { Contract } from '@/types';
 
-// Mock data for development - replace with real API calls
-const mockStats: SellerDashboardStats = {
-  activeContracts: 12,
-  activeContractsChange: '+2 this week',
-  pendingOrders: 8,
-  pendingOrdersChange: '+3 today',
-  completedOrders: 45,
-  totalRevenue: 125400,
-  revenueChange: '+15%',
-};
+// API Response wrapper type (backend envelope)
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  errors: string[] | null;
+}
 
-const mockActivities: ActivityItem[] = [
-  {
-    id: '1',
-    message: 'Order #ORD-2024-015 created',
-    timestamp: '5 minutes ago',
-    type: 'order',
-  },
-  {
-    id: '2',
-    message: 'Dimensions updated for Category A',
-    timestamp: '1 hour ago',
-    type: 'dimension',
-  },
-  {
-    id: '3',
-    message: 'Task assigned to John Doe',
-    timestamp: '2 hours ago',
-    type: 'task',
-  },
-  {
-    id: '4',
-    message: 'Material request approved',
-    timestamp: '3 hours ago',
-    type: 'material',
-  },
-];
-
-const mockPendingItems: PendingItem[] = [
-  {
-    id: '1',
-    title: 'Review order dimensions',
-    dueDate: 'Today',
-    priority: 'high',
-  },
-  {
-    id: '2',
-    title: 'Approve material request',
-    dueDate: 'Tomorrow',
-    priority: 'medium',
-  },
-  {
-    id: '3',
-    title: 'Assign tasks to team',
-    dueDate: 'This week',
-    priority: 'medium',
-  },
-  {
-    id: '4',
-    title: 'Update inventory count',
-    dueDate: 'This week',
-    priority: 'low',
-  },
-];
+// Contract stats response from API
+interface ContractStatsResponse {
+  totalContracts: number;
+  activeContracts: number;
+  completedContracts: number;
+  draftContracts: number;
+  pendingOrders: number;
+  completedOrders: number;
+  totalRevenue: number;
+}
 
 export const sellerService = {
+  // ==================== Dashboard Stats ====================
   async getDashboardStats(): Promise<SellerDashboardStats> {
-    // TODO: Replace with real API call
-    // const response = await apiClient.get<{ data: SellerDashboardStats }>('/seller/dashboard/stats');
-    // return response.data.data;
+    const response = await apiClient.get<ApiResponse<ContractStatsResponse>>('/seller/dashboard/stats');
+    const stats = response.data.data;
     
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return mockStats;
+    return {
+      activeContracts: stats.activeContracts,
+      activeContractsChange: '', // Backend can provide this if needed
+      pendingOrders: stats.pendingOrders,
+      pendingOrdersChange: '',
+      completedOrders: stats.completedOrders,
+      totalRevenue: stats.totalRevenue,
+      revenueChange: '',
+    };
   },
 
+  // ==================== Activities ====================
   async getRecentActivities(): Promise<ActivityItem[]> {
-    // TODO: Replace with real API call
-    // const response = await apiClient.get<{ data: ActivityItem[] }>('/seller/activities');
-    // return response.data.data;
-    
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    return mockActivities;
+    const response = await apiClient.get<ApiResponse<ActivityItem[]>>('/seller/activities');
+    return response.data.data;
   },
 
+  // ==================== Pending Items ====================
   async getPendingItems(): Promise<PendingItem[]> {
-    // TODO: Replace with real API call
-    // const response = await apiClient.get<{ data: PendingItem[] }>('/seller/pending-items');
-    // return response.data.data;
-    
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    return mockPendingItems;
+    const response = await apiClient.get<ApiResponse<PendingItem[]>>('/seller/pending-items');
+    return response.data.data;
   },
 
+  // ==================== Contracts ====================
+  async getContracts(): Promise<Contract[]> {
+    const response = await apiClient.get<ApiResponse<Contract[]>>('/contracts');
+    return response.data.data;
+  },
+
+  async getContractById(id: string): Promise<Contract> {
+    const response = await apiClient.get<ApiResponse<Contract>>(`/contracts/${id}`);
+    return response.data.data;
+  },
+
+  async createContract(contract: Partial<Contract>): Promise<Contract> {
+    const response = await apiClient.post<ApiResponse<Contract>>('/contracts', contract);
+    return response.data.data;
+  },
+
+  async updateContract(id: string, contract: Partial<Contract>): Promise<Contract> {
+    const response = await apiClient.put<ApiResponse<Contract>>(`/contracts/${id}`, contract);
+    return response.data.data;
+  },
+
+  async deleteContract(id: string): Promise<void> {
+    await apiClient.delete(`/contracts/${id}`);
+  },
+
+  // ==================== Contract Stats ====================
+  async getContractStats(): Promise<ContractStatsResponse> {
+    const response = await apiClient.get<ApiResponse<ContractStatsResponse>>('/contracts/stats');
+    return response.data.data;
+  },
+
+  // ==================== Helper Functions ====================
   transformStatsToCards(stats: SellerDashboardStats): StatCardData[] {
     return [
       {
         id: 'active-contracts',
         title: 'Active Contracts',
         value: stats.activeContracts,
-        subtext: stats.activeContractsChange,
+        subtext: stats.activeContractsChange || undefined,
         icon: 'document',
         color: 'blue',
       },
@@ -114,7 +101,7 @@ export const sellerService = {
         id: 'pending-orders',
         title: 'Pending Orders',
         value: stats.pendingOrders,
-        subtext: stats.pendingOrdersChange,
+        subtext: stats.pendingOrdersChange || undefined,
         icon: 'cart',
         color: 'orange',
       },
@@ -129,7 +116,7 @@ export const sellerService = {
         id: 'total-revenue',
         title: 'Total Revenue',
         value: `$${stats.totalRevenue.toLocaleString()}`,
-        subtext: stats.revenueChange,
+        subtext: stats.revenueChange || undefined,
         icon: 'chart',
         color: 'gray',
       },
