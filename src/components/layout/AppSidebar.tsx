@@ -33,10 +33,12 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ collapsed, onToggle }) =
         {/* Header */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
           {!collapsed && (
-            <div className="flex items-center gap-2">
-              <Factory className="h-6 w-6 text-sidebar-primary" />
+            <div className="flex flex-col">
               <span className="text-lg font-semibold text-sidebar-foreground">
-                ProductionMS
+                {user.role === 'Seller' ? 'Sales Person' : 'ProductionMS'}
+              </span>
+              <span className="text-xs text-info">
+                {user.role === 'Seller' ? 'Seller' : getRoleDisplayName(user.role)}
               </span>
             </div>
           )}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { SellerDashboard } from '@/pages/seller/SellerDashboard';
 import { AppHeader } from '@/components/layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -17,12 +18,6 @@ import { getRoleDisplayName } from '@/config/navigation';
 // Mock statistics data - in real app this would come from API
 const getStatsForRole = (role: string) => {
   const roleStats: Record<string, { title: string; value: string; icon: React.ElementType; trend?: string; color: string }[]> = {
-    Seller: [
-      { title: 'Active Contracts', value: '12', icon: FileText, trend: '+2 this week', color: 'text-info' },
-      { title: 'Pending Orders', value: '8', icon: ShoppingCart, trend: '+3 today', color: 'text-warning' },
-      { title: 'Completed Orders', value: '45', icon: CheckSquare, color: 'text-success' },
-      { title: 'Total Revenue', value: '$125,400', icon: TrendingUp, trend: '+15%', color: 'text-primary' },
-    ],
     Director: [
       { title: 'Total Contracts', value: '156', icon: FileText, trend: '+12 this month', color: 'text-info' },
       { title: 'Active Orders', value: '34', icon: ShoppingCart, color: 'text-warning' },
@@ -82,6 +77,11 @@ export const DashboardPage: React.FC = () => {
         <p className="text-muted-foreground">No user data available. Please login.</p>
       </div>
     );
+  }
+
+  // Render role-specific dashboard for Seller
+  if (user.role === 'Seller') {
+    return <SellerDashboard />;
   }
 
   const stats = getStatsForRole(user.role);
