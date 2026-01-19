@@ -14,6 +14,7 @@ import { EmployeesPage, AssignmentsPage } from "@/pages/production";
 import { TasksPage } from "@/pages/teamleader";
 import { MyTasksPage, MyKPIPage } from "@/pages/employee";
 import { InventoryPage, StockManagementPage } from "@/pages/warehouse";
+import { NotificationsPage } from "@/pages/notifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,7 +46,7 @@ const App = () => (
               <Route path="/inventory" element={<ProtectedRoute allowedRoles={['WarehouseManager']}><InventoryPage /></ProtectedRoute>} />
               <Route path="/stock-management" element={<ProtectedRoute allowedRoles={['WarehouseManager']}><StockManagementPage /></ProtectedRoute>} />
               <Route path="/kpi-dashboard" element={<ProtectedRoute allowedRoles={['Director', 'ProductionManager']}><DashboardPage /></ProtectedRoute>} />
-              <Route path="/notifications" element={<DashboardPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />
