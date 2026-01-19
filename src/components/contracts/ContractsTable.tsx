@@ -7,24 +7,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Eye, Edit, Trash2, MoreHorizontal } from 'lucide-react';
-import { Contract } from '@/types/contract';
-import { format } from 'date-fns';
+import { Contract, ContractStatus } from '@/types/contract';
+import { ContractStatusDropdown } from './ContractStatusDropdown';
+import { ContractActionsMenu } from './ContractActionsMenu';
+import { format, parseISO, isValid } from 'date-fns';
 
 interface ContractsTableProps {
   contracts: Contract[];
@@ -32,21 +19,33 @@ interface ContractsTableProps {
   onView: (contract: Contract) => void;
   onEdit: (contract: Contract) => void;
   onDelete: (contract: Contract) => void;
-  onStatusChange: (contract: Contract, newStatus: string) => void;
+  onStatusChange: (contract: Contract, newStatus: ContractStatus) => void;
 }
 
-const getStatusBadge = (status: string) => {
-  const variants: Record<string, string> = {
-    Active: 'bg-info/10 text-info border-info/20',
-    Completed: 'bg-success/10 text-success border-success/20',
-    Draft: 'bg-warning/10 text-warning border-warning/20',
-    Cancelled: 'bg-destructive/10 text-destructive border-destructive/20',
-  };
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${variants[status] || 'bg-muted text-muted-foreground'}`}>
-      {status}
-    </span>
-  );
+// Format date safely - filter out invalid dates like 0001-01-01
+const formatDate = (dateString?: string): string => {
+  if (!dateString) return '-';
+  
+  try {
+    const date = parseISO(dateString);
+    if (!isValid(date) || date.getFullYear() < 1900) {
+      return '-';
+    }
+    return format(date, 'MMM dd, yyyy');
+  } catch {
+    return '-';
+  }
+};
+
+// Format currency
+const formatCurrency = (amount?: number): string => {
+  if (amount === undefined || amount === null) return '$0';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
 };
 
 export const ContractsTable: React.FC<ContractsTableProps> = ({
@@ -57,94 +56,71 @@ export const ContractsTable: React.FC<ContractsTableProps> = ({
   onDelete,
   onStatusChange,
 }) => {
+  // Loading skeleton
   if (loading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3, 4, 5].map((i) => (
+        {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="h-12 w-full" />
         ))}
       </div>
     );
   }
 
-  if (contracts.length === 0) {
+  // Empty state
+  if (!contracts || contracts.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        No contracts available.
+        <p className="text-lg font-medium">No contracts available</p>
+        <p className="text-sm mt-1">Create your first contract to get started.</p>
       </div>
     );
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Contract #</TableHead>
-          <TableHead>Customer</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Created</TableHead>
-          <TableHead>Seller</TableHead>
-          <TableHead className="w-[100px]">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {contracts.map((contract) => (
-          <TableRow key={contract.id}>
-            <TableCell className="font-medium">{contract.contractNumber}</TableCell>
-            <TableCell>{contract.customerName}</TableCell>
-            <TableCell>${contract.totalAmount?.toLocaleString() ?? 0}</TableCell>
-            <TableCell>
-              <Select
-                value={contract.status}
-                onValueChange={(value) => onStatusChange(contract, value)}
-              >
-                <SelectTrigger className="w-[120px] h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Draft">Draft</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="Cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </TableCell>
-            <TableCell>
-              {contract.createdAt 
-                ? format(new Date(contract.createdAt), 'MMM dd, yyyy')
-                : '-'}
-            </TableCell>
-            <TableCell>{contract.sellerName || '-'}</TableCell>
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onView(contract)}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onEdit(contract)}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => onDelete(contract)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Contract #</TableHead>
+            <TableHead>Customer</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Amount</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead>Seller</TableHead>
+            <TableHead className="w-[80px]">Actions</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {contracts.map((contract) => (
+            <TableRow key={contract.id}>
+              <TableCell className="font-medium">
+                {contract.contractNumber || '-'}
+              </TableCell>
+              <TableCell>{contract.customerName || '-'}</TableCell>
+              <TableCell>{contract.categoryName || '-'}</TableCell>
+              <TableCell>{formatCurrency(contract.totalAmount)}</TableCell>
+              <TableCell>
+                <ContractStatusDropdown
+                  value={contract.status}
+                  onChange={(newStatus) => onStatusChange(contract, newStatus)}
+                />
+              </TableCell>
+              <TableCell>{formatDate(contract.createdAt)}</TableCell>
+              <TableCell>{contract.sellerName || '-'}</TableCell>
+              <TableCell>
+                <ContractActionsMenu
+                  contract={contract}
+                  onView={onView}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 };

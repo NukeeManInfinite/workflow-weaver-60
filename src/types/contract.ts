@@ -1,5 +1,12 @@
-// Contract API Types - Strictly matching backend schema
+// Contract Types - Matching Backend Schema Exactly
 
+// Contract Status Enum
+export type ContractStatus = 'Draft' | 'Active' | 'Completed' | 'Cancelled';
+
+// Payment Status Enum
+export type PaymentStatus = 'Pending' | 'PartiallyPaid' | 'Paid';
+
+// Contract Entity - matches backend response
 export interface Contract {
   id: string;
   contractNumber: string;
@@ -12,16 +19,17 @@ export interface Contract {
   advancePaymentPercentage?: number;
   deadline?: string;
   signedDate?: string;
-  paymentStatus?: 'Pending' | 'PartiallyPaid' | 'Paid';
+  paymentStatus?: PaymentStatus;
   terms?: string;
   notes?: string;
-  status: 'Draft' | 'Active' | 'Completed' | 'Cancelled';
+  status: ContractStatus;
   createdAt: string;
   updatedAt: string;
   sellerId: string;
   sellerName: string;
 }
 
+// POST /api/Contracts - Create Request
 export interface ContractCreateRequest {
   customerId: string;
   categoryId?: string;
@@ -30,17 +38,31 @@ export interface ContractCreateRequest {
   advancePaymentPercentage?: number;
   deadline?: string;
   signedDate?: string;
-  paymentStatus?: string;
+  paymentStatus?: PaymentStatus;
   terms?: string;
   notes?: string;
 }
 
-export interface ContractUpdateRequest extends Partial<ContractCreateRequest> {}
-
-export interface ContractStatusUpdateRequest {
-  status: 'Draft' | 'Active' | 'Completed' | 'Cancelled';
+// PUT /api/Contracts/{id} - Update Request
+export interface ContractUpdateRequest {
+  customerId?: string;
+  categoryId?: string;
+  description?: string;
+  totalAmount?: number;
+  advancePaymentPercentage?: number;
+  deadline?: string;
+  signedDate?: string;
+  paymentStatus?: PaymentStatus;
+  terms?: string;
+  notes?: string;
 }
 
+// PUT /api/Contracts/{id}/status - Status Update Request
+export interface ContractStatusUpdateRequest {
+  status: ContractStatus;
+}
+
+// GET /api/Contracts/stats - Statistics Response
 export interface ContractStats {
   totalContracts: number;
   activeContracts: number;
@@ -48,8 +70,9 @@ export interface ContractStats {
   draftContracts: number;
 }
 
+// Query Parameters for GET /api/Contracts
 export interface ContractsQueryParams {
-  Status?: string;
+  Status?: ContractStatus;
   CustomerId?: string;
   CategoryId?: string;
   FromDate?: string;
@@ -61,6 +84,7 @@ export interface ContractsQueryParams {
   SortDescending?: boolean;
 }
 
+// Paginated Response wrapper
 export interface PaginatedResponse<T> {
   items: T[];
   totalCount: number;
@@ -69,6 +93,7 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+// Standard API Response wrapper
 export interface ApiResponse<T> {
   success: boolean;
   message: string;

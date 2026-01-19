@@ -9,8 +9,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Contract } from '@/types/contract';
 import { Loader2 } from 'lucide-react';
+import { Contract } from '@/types/contract';
 
 interface DeleteConfirmModalProps {
   open: boolean;
@@ -34,13 +34,17 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
           <AlertDialogTitle>Delete Contract</AlertDialogTitle>
           <AlertDialogDescription>
             Are you sure you want to delete contract{' '}
-            <strong>{contract?.contractNumber}</strong>? This action cannot be undone.
+            <span className="font-semibold">{contract?.contractNumber}</span>? This action
+            cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={(e) => {
+              e.preventDefault();
+              onConfirm();
+            }}
             disabled={loading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
