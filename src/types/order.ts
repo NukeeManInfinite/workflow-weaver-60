@@ -1,0 +1,82 @@
+// Order Types for Orders Management
+
+export interface Order {
+  id: string;
+  orderNumber: string;
+  contractId: string;
+  contractNumber?: string;
+  customerId: string;
+  customerName?: string;
+  categoryId?: string;
+  categoryName?: string;
+  categories?: number;
+  status: OrderStatus;
+  totalAmount: number;
+  constructorId?: string;
+  constructorName?: string;
+  productionManagerId?: string;
+  productionManagerName?: string;
+  description?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type OrderStatus = 'Created' | 'InProgress' | 'Completed' | 'Cancelled';
+
+export interface OrderStats {
+  totalOrders: number;
+  created: number;
+  inProgress: number;
+  completed: number;
+}
+
+export interface CreateOrderDto {
+  contractId: string;
+  customerId: string;
+  categoryId?: string;
+  description?: string;
+  totalAmount: number;
+  notes?: string;
+}
+
+export interface UpdateOrderDto {
+  contractId?: string;
+  customerId?: string;
+  categoryId?: string;
+  description?: string;
+  totalAmount?: number;
+  notes?: string;
+}
+
+export interface AssignOrderDto {
+  userId: string;
+}
+
+export interface OrdersQueryParams {
+  Status?: OrderStatus;
+  CustomerId?: string;
+  CategoryId?: string;
+  FromDate?: string;
+  ToDate?: string;
+  SearchTerm?: string;
+  PageNumber?: number;
+  PageSize?: number;
+  SortBy?: string;
+  SortDescending?: boolean;
+}
+
+export interface PaginatedOrdersResponse {
+  items: Order[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  errors: string[] | null;
+}
