@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
 import {
   Popover,
   PopoverContent,
@@ -16,13 +17,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Plus, Search, Filter, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Filter,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  CheckCircle,
+  Clock,
+  Activity,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { contractService } from '@/services/contractService';
-import { Contract, ContractStats, ContractsQueryParams, ContractCreateRequest } from '@/types/contract';
-import { ContractsTable, ContractFormModal, DeleteConfirmModal } from '@/components/contracts';
+import {
+  Contract,
+  ContractStats,
+  ContractsQueryParams,
+  ContractCreateRequest,
+  ContractStatus,
+} from '@/types/contract';
+import {
+  ContractsTable,
+  ContractFormModal,
+  DeleteConfirmModal,
+} from '@/components/contracts';
 
 export const ContractsPage: React.FC = () => {
   // Data state
@@ -35,20 +56,25 @@ export const ContractsPage: React.FC = () => {
   const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Query params
+  // Query params state
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<ContractStatus | ''>('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [sortBy, setSortBy] = useState('');
+  const [sortDescending, setSortDescending] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize] = useState(10);
 
   // Modal state
   const [formModalOpen, setFormModalOpen] = useState(false);
+  const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('create');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Fetch contracts
+  // Fetch contracts from API
   const fetchContracts = useCallback(async () => {
     try {
       setLoading(true);
@@ -59,6 +85,10 @@ export const ContractsPage: React.FC = () => {
         PageSize: pageSize,
         SearchTerm: searchTerm || undefined,
         Status: statusFilter || undefined,
+        FromDate: fromDate || undefined,
+        ToDate: toDate || undefined,
+        SortBy: sortBy || undefined,
+        SortDescending: sortDescending || undefined,
       };
 
       const response = await contractService.getContracts(params);
@@ -71,9 +101,9 @@ export const ContractsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [pageNumber, pageSize, searchTerm, statusFilter]);
+  }, [pageNumber, pageSize, searchTerm, statusFilter, fromDate, toDate, sortBy, sortDescending]);
 
-  // Fetch stats
+  // Fetch stats from API
   const fetchStats = useCallback(async () => {
     try {
       setStatsLoading(true);
@@ -81,7 +111,6 @@ export const ContractsPage: React.FC = () => {
       setStats(statsData);
     } catch (err: any) {
       console.error('Failed to fetch stats:', err);
-      // Don't show error for stats, just use defaults
       setStats({
         totalContracts: 0,
         activeContracts: 0,
@@ -93,6 +122,7 @@ export const ContractsPage: React.FC = () => {
     }
   }, []);
 
+  // Initial data load
   useEffect(() => {
     fetchContracts();
     fetchStats();
@@ -106,26 +136,57 @@ export const ContractsPage: React.FC = () => {
       } else {
         fetchContracts();
       }
-    }, 300);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
   // Handle status filter change
   const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(value === 'all' ? '' : value);
+    setStatusFilter(value === 'all' ? '' : (value as ContractStatus));
+    setPageNumber(1);
+  };
+
+  // Handle sort change
+  const handleSortChange = (value: string) => {
+    if (value === 'none') {
+      setSortBy('');
+      setSortDescending(false);
+    } else {
+      const [field, direction] = value.split('-');
+      setSortBy(field);
+      setSortDescending(direction === 'desc');
+    }
+    setPageNumber(1);
+  };
+
+  // Apply filters
+  const applyFilters = () => {
+    setPageNumber(1);
+    fetchContracts();
+  };
+
+  // Clear filters
+  const clearFilters = () => {
+    setStatusFilter('');
+    setFromDate('');
+    setToDate('');
+    setSortBy('');
+    setSortDescending(false);
     setPageNumber(1);
   };
 
   // Handle view contract
   const handleView = (contract: Contract) => {
     setSelectedContract(contract);
+    setFormMode('view');
     setFormModalOpen(true);
   };
 
   // Handle edit contract
   const handleEdit = (contract: Contract) => {
     setSelectedContract(contract);
+    setFormMode('edit');
     setFormModalOpen(true);
   };
 
@@ -135,13 +196,11 @@ export const ContractsPage: React.FC = () => {
     setDeleteModalOpen(true);
   };
 
-  // Handle status change
-  const handleStatusChange = async (contract: Contract, newStatus: string) => {
+  // Handle status change - PUT /api/Contracts/{id}/status
+  const handleStatusChange = async (contract: Contract, newStatus: ContractStatus) => {
     try {
-      await contractService.updateStatus(contract.id, {
-        status: newStatus as 'Draft' | 'Active' | 'Completed' | 'Cancelled',
-      });
-      toast.success('Contract status updated');
+      await contractService.updateStatus(contract.id, { status: newStatus });
+      toast.success('Contract status updated successfully');
       fetchContracts();
       fetchStats();
     } catch (err: any) {
@@ -153,7 +212,7 @@ export const ContractsPage: React.FC = () => {
   const handleFormSubmit = async (data: ContractCreateRequest) => {
     try {
       setFormLoading(true);
-      if (selectedContract) {
+      if (formMode === 'edit' && selectedContract) {
         await contractService.update(selectedContract.id, data);
         toast.success('Contract updated successfully');
       } else {
@@ -171,7 +230,7 @@ export const ContractsPage: React.FC = () => {
     }
   };
 
-  // Handle delete confirm
+  // Handle delete confirm - DELETE /api/Contracts/{id}
   const handleDeleteConfirm = async () => {
     if (!selectedContract) return;
 
@@ -190,9 +249,10 @@ export const ContractsPage: React.FC = () => {
     }
   };
 
-  // Handle new contract
+  // Handle new contract button
   const handleNewContract = () => {
     setSelectedContract(null);
+    setFormMode('create');
     setFormModalOpen(true);
   };
 
@@ -200,14 +260,14 @@ export const ContractsPage: React.FC = () => {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
-    <div className="min-h-screen">
-      <AppHeader title="Contracts" description="Manage your customer contracts" />
+    <div className="min-h-screen bg-background">
+      <AppHeader title="Contracts" description="Manage customer contracts" />
 
-      <div className="p-6 space-y-6 animate-fade-in">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="p-6 space-y-6">
+        {/* Stats Cards - GET /api/Contracts/stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {statsLoading ? (
-            [1, 2, 3, 4].map((i) => (
+            Array.from({ length: 4 }).map((_, i) => (
               <Card key={i}>
                 <CardContent className="p-4">
                   <Skeleton className="h-8 w-16 mb-2" />
@@ -218,34 +278,46 @@ export const ContractsPage: React.FC = () => {
           ) : (
             <>
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold">{stats?.totalContracts ?? 0}</div>
-                  <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary text-primary-foreground">
-                    Total Contracts
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <FileText className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">{stats?.totalContracts ?? 0}</div>
+                    <div className="text-sm text-muted-foreground">Total Contracts</div>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-info">{stats?.activeContracts ?? 0}</div>
-                  <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info text-info-foreground">
-                    Active
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-info/10">
+                    <Activity className="h-6 w-6 text-info" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-info">{stats?.activeContracts ?? 0}</div>
+                    <div className="text-sm text-muted-foreground">Active</div>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-success">{stats?.completedContracts ?? 0}</div>
-                  <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success text-success-foreground">
-                    Completed
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-success/10">
+                    <CheckCircle className="h-6 w-6 text-success" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-success">{stats?.completedContracts ?? 0}</div>
+                    <div className="text-sm text-muted-foreground">Completed</div>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-warning">{stats?.draftContracts ?? 0}</div>
-                  <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning text-warning-foreground">
-                    Draft
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-warning/10">
+                    <Clock className="h-6 w-6 text-warning" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-warning">{stats?.draftContracts ?? 0}</div>
+                    <div className="text-sm text-muted-foreground">Draft</div>
                   </div>
                 </CardContent>
               </Card>
@@ -253,9 +325,10 @@ export const ContractsPage: React.FC = () => {
           )}
         </div>
 
-        {/* Search & Filters */}
+        {/* Search & Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="flex gap-2 flex-1 max-w-md">
+          <div className="flex gap-2 flex-1 max-w-lg">
+            {/* Search Input */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -265,19 +338,24 @@ export const ContractsPage: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+
+            {/* Filter Popover */}
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="icon">
                   <Filter className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-64" align="end">
+              <PopoverContent className="w-80 bg-popover" align="end">
                 <div className="space-y-4">
+                  <h4 className="font-medium">Filters</h4>
+
+                  {/* Status Filter */}
                   <div className="space-y-2">
                     <Label>Status</Label>
                     <Select value={statusFilter || 'all'} onValueChange={handleStatusFilterChange}>
                       <SelectTrigger>
-                        <SelectValue placeholder="All statuses" />
+                        <SelectValue placeholder="All Statuses" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Statuses</SelectItem>
@@ -288,10 +366,62 @@ export const ContractsPage: React.FC = () => {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Date Range */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label>From Date</Label>
+                      <Input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>To Date</Label>
+                      <Input
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Sort Options */}
+                  <div className="space-y-2">
+                    <Label>Sort By</Label>
+                    <Select
+                      value={sortBy ? `${sortBy}-${sortDescending ? 'desc' : 'asc'}` : 'none'}
+                      onValueChange={handleSortChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="No sorting" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No sorting</SelectItem>
+                        <SelectItem value="createdAt-desc">Created (Newest)</SelectItem>
+                        <SelectItem value="createdAt-asc">Created (Oldest)</SelectItem>
+                        <SelectItem value="totalAmount-desc">Amount (High to Low)</SelectItem>
+                        <SelectItem value="totalAmount-asc">Amount (Low to High)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Filter Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={clearFilters}>
+                      Clear
+                    </Button>
+                    <Button size="sm" className="flex-1" onClick={applyFilters}>
+                      Apply Filters
+                    </Button>
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
           </div>
+
+          {/* New Contract Button */}
           <Button onClick={handleNewContract}>
             <Plus className="mr-2 h-4 w-4" />
             New Contract
@@ -362,7 +492,7 @@ export const ContractsPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Form Modal */}
+      {/* Form Modal - POST/PUT /api/Contracts */}
       <ContractFormModal
         open={formModalOpen}
         onClose={() => {
@@ -372,9 +502,10 @@ export const ContractsPage: React.FC = () => {
         onSubmit={handleFormSubmit}
         contract={selectedContract}
         loading={formLoading}
+        mode={formMode}
       />
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal - DELETE /api/Contracts/{id} */}
       <DeleteConfirmModal
         open={deleteModalOpen}
         onClose={() => {
