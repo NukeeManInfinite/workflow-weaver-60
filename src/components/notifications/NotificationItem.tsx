@@ -3,8 +3,7 @@ import { Trash2, FileText, ShoppingCart, Bell, AlertCircle, CheckCircle, Info } 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Notification } from '@/types';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { cn, formatNotificationDate } from '@/lib/utils';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -111,9 +110,11 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
               {notification.relatedEntityType}
             </Badge>
           )}
-          <span className="text-xs text-muted-foreground">
-            {format(new Date(notification.createdAt), 'MMM dd, yyyy • HH:mm')}
-          </span>
+          {formatNotificationDate(notification.createdAt) && (
+            <span className="text-xs text-muted-foreground">
+              {formatNotificationDate(notification.createdAt)}
+            </span>
+          )}
           {!notification.isRead && (
             <Badge variant="secondary" className="text-xs">
               Unread
