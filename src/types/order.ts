@@ -49,11 +49,8 @@ export interface OrderStats {
 }
 
 export interface CreateOrderDto {
-  contractId: string;
-  customerId: string;
-  categoryId?: string;
+  contractId: number;
   description?: string;
-  totalAmount: number;
   notes?: string;
 }
 
