@@ -12,6 +12,8 @@ export interface Contract {
   contractNumber: string;
   customerId: string;
   customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
   categoryId?: string;
   categoryName?: string;
   categoryNames?: string[] | string; // Backend may return array or comma-separated string

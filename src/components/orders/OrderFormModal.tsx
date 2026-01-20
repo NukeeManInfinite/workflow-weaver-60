@@ -7,10 +7,10 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Order, CreateOrderDto, UpdateOrderDto } from '@/types/order';
+import { Order, CreateOrderDto, UpdateOrderDto, ContractSummary } from '@/types/order';
+import { ContractSelector } from './ContractSelector';
 
 interface OrderFormModalProps {
   open: boolean;
@@ -38,6 +38,9 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
     notes: '',
   });
 
+  const [selectedContract, setSelectedContract] = useState<ContractSummary | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (order) {
       setFormData({
@@ -48,6 +51,21 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
         totalAmount: order.totalAmount || 0,
         notes: order.notes || '',
       });
+      // For edit mode, create a contract summary from order data
+      if (order.contractId) {
+        setSelectedContract({
+          id: order.contractId,
+          contractNumber: order.contractNumber || '',
+          customerId: order.customerId,
+          customerName: order.customerName || '',
+          customerPhone: order.customerPhone,
+          customerAddress: order.customerAddress,
+          categoryNames: order.categoryName ? [order.categoryName] : [],
+          totalAmount: order.totalAmount,
+          status: 'Active',
+          isApproved: true,
+        });
+      }
     } else {
       setFormData({
         contractId: '',
@@ -57,69 +75,82 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
         totalAmount: 0,
         notes: '',
       });
+      setSelectedContract(null);
     }
+    setErrors({});
   }, [order, open]);
+
+  const handleContractChange = (contractId: string, contract: ContractSummary | null) => {
+    setSelectedContract(contract);
+    setErrors((prev) => ({ ...prev, contractId: '' }));
+    
+    if (contract) {
+      setFormData({
+        ...formData,
+        contractId: contract.id,
+        customerId: contract.customerId,
+        totalAmount: contract.totalAmount,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        contractId: '',
+        customerId: '',
+        totalAmount: 0,
+      });
+    }
+  };
+
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.contractId) {
+      newErrors.contractId = 'Please select a contract';
+    }
+
+    if (selectedContract && !selectedContract.isApproved) {
+      newErrors.contractId = 'Selected contract must be approved';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validate()) {
+      return;
+    }
+
     await onSubmit(formData);
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Order' : 'Create New Order'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="contractId">Contract ID *</Label>
-                <Input
-                  id="contractId"
-                  value={formData.contractId}
-                  onChange={(e) => setFormData({ ...formData, contractId: e.target.value })}
-                  required
-                  placeholder="Enter contract ID"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="customerId">Customer ID *</Label>
-                <Input
-                  id="customerId"
-                  value={formData.customerId}
-                  onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-                  required
-                  placeholder="Enter customer ID"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="categoryId">Category ID</Label>
-                <Input
-                  id="categoryId"
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  placeholder="Enter category ID"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="totalAmount">Total Amount *</Label>
-                <Input
-                  id="totalAmount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.totalAmount}
-                  onChange={(e) => setFormData({ ...formData, totalAmount: parseFloat(e.target.value) || 0 })}
-                  required
-                />
-              </div>
+          <div className="space-y-6 py-4">
+            {/* Contract Selector */}
+            <div className="space-y-2">
+              <Label htmlFor="contract">Contract *</Label>
+              <ContractSelector
+                value={formData.contractId}
+                onChange={handleContractChange}
+                disabled={loading || isEdit}
+                error={errors.contractId}
+              />
+              {isEdit && (
+                <p className="text-sm text-muted-foreground">
+                  Contract cannot be changed for existing orders
+                </p>
+              )}
             </div>
 
+            {/* Description */}
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -128,9 +159,11 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Enter order description"
                 rows={3}
+                disabled={loading}
               />
             </div>
 
+            {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
               <Textarea
@@ -139,14 +172,19 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 placeholder="Additional notes"
                 rows={2}
+                disabled={loading}
               />
             </div>
           </div>
+          
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button 
+              type="submit" 
+              disabled={loading || !formData.contractId || (selectedContract && !selectedContract.isApproved)}
+            >
               {loading ? 'Saving...' : isEdit ? 'Update Order' : 'Create Order'}
             </Button>
           </DialogFooter>
