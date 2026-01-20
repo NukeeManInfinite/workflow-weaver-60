@@ -88,34 +88,44 @@ export const sellerService = {
 
   // ==================== Helper Functions ====================
   transformStatsToCards(stats: SellerDashboardStats): StatCardData[] {
+    // Format revenue with Uzbek locale
+    const formattedRevenue = new Intl.NumberFormat('uz-UZ', {
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(stats.totalRevenue) + " so'm";
+
     return [
       {
         id: 'active-contracts',
-        title: 'Active Contracts',
+        titleKey: 'stats.activeContracts',
         value: stats.activeContracts,
         subtext: stats.activeContractsChange || undefined,
         icon: 'document',
         color: 'blue',
+        navigateTo: '/seller/contracts',
       },
       {
         id: 'pending-orders',
-        title: 'Pending Orders',
+        titleKey: 'stats.pendingOrders',
         value: stats.pendingOrders,
         subtext: stats.pendingOrdersChange || undefined,
         icon: 'cart',
         color: 'orange',
+        navigateTo: '/seller/orders',
       },
       {
         id: 'completed-orders',
-        title: 'Completed Orders',
+        titleKey: 'stats.completedOrders',
         value: stats.completedOrders,
         icon: 'checkmark',
         color: 'green',
+        navigateTo: '/seller/orders',
       },
       {
         id: 'total-revenue',
-        title: 'Total Revenue',
-        value: `$${stats.totalRevenue.toLocaleString()}`,
+        titleKey: 'stats.totalRevenue',
+        value: formattedRevenue,
         subtext: stats.revenueChange || undefined,
         icon: 'chart',
         color: 'gray',

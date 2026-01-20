@@ -1,0 +1,75 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "actions": "Actions",
+    "noData": "No data available",
+    "systemActivity": "System activity"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back",
+    "statistics": "Statistics",
+    "statsError": "Unable to load statistics"
+  },
+  "stats": {
+    "activeContracts": "Active Contracts",
+    "pendingOrders": "Pending Orders",
+    "completedOrders": "Completed Orders",
+    "totalRevenue": "Total Revenue"
+  },
+  "activity": {
+    "title": "Recent Activity",
+    "subtitle": "Your latest actions and updates",
+    "empty": "No recent activity",
+    "orderCreated": "New order created",
+    "contractCreated": "New contract created",
+    "statusChanged": "Status updated",
+    "updated": "Updated",
+    "completed": "Completed",
+    "pending": "Pending",
+    "created": "Created",
+    "order": "Order",
+    "contract": "Contract"
+  },
+  "pending": {
+    "title": "Pending Items",
+    "subtitle": "Items requiring your attention",
+    "empty": "No pending items",
+    "requiresFollowUp": "Follow-up required",
+    "pendingApproval": "Waiting for approval",
+    "pendingReview": "Pending review",
+    "needsAttention": "Needs attention",
+    "order": "Order",
+    "contract": "Contract"
+  },
+  "status": {
+    "new": "New",
+    "pending": "Pending",
+    "approved": "Approved",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "draft": "Draft",
+    "active": "Active"
+  },
+  "errors": {
+    "loadFailed": "Failed to load data",
+    "statsLoadFailed": "Failed to load dashboard statistics",
+    "tryAgain": "Please try again"
+  },
+  "languages": {
+    "en": "English",
+    "ru": "Русский",
+    "uz": "O'zbek"
+  }
+}

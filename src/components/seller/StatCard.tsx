@@ -1,4 +1,6 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { FileText, ShoppingCart, CheckSquare, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StatCardData } from '@/types/seller';
@@ -35,19 +37,30 @@ const colorStyles = {
 };
 
 export const StatCard: React.FC<StatCardProps> = ({ data, className }) => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  
   const Icon = iconMap[data.icon];
   const colors = colorStyles[data.color];
 
+  const handleClick = () => {
+    if (data.navigateTo) {
+      navigate(data.navigateTo);
+    }
+  };
+
   return (
     <div
+      onClick={handleClick}
       className={cn(
-        'bg-card rounded-lg border border-border p-5 transition-all duration-200 hover:shadow-md',
+        'bg-card rounded-lg border border-border p-5 transition-all duration-200',
+        data.navigateTo && 'cursor-pointer hover:shadow-md hover:border-primary/20',
         className
       )}
     >
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">{data.title}</p>
+          <p className="text-sm text-muted-foreground">{t(data.titleKey)}</p>
           <p className="text-3xl font-bold text-foreground">{data.value}</p>
           {data.subtext && (
             <p className={cn('text-sm font-medium', colors.subtext)}>

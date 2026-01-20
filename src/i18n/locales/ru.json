@@ -1,0 +1,75 @@
+{
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "success": "Успешно",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "view": "Просмотр",
+    "create": "Создать",
+    "search": "Поиск",
+    "filter": "Фильтр",
+    "actions": "Действия",
+    "noData": "Нет данных",
+    "systemActivity": "Системная активность"
+  },
+  "dashboard": {
+    "title": "Панель управления",
+    "welcome": "Добро пожаловать",
+    "statistics": "Статистика",
+    "statsError": "Не удалось загрузить статистику"
+  },
+  "stats": {
+    "activeContracts": "Активные контракты",
+    "pendingOrders": "Ожидающие заказы",
+    "completedOrders": "Выполненные заказы",
+    "totalRevenue": "Общий доход"
+  },
+  "activity": {
+    "title": "Последняя активность",
+    "subtitle": "Ваши последние действия и обновления",
+    "empty": "Нет недавней активности",
+    "orderCreated": "Новый заказ создан",
+    "contractCreated": "Новый контракт создан",
+    "statusChanged": "Статус обновлен",
+    "updated": "Обновлено",
+    "completed": "Завершено",
+    "pending": "В ожидании",
+    "created": "Создано",
+    "order": "Заказ",
+    "contract": "Контракт"
+  },
+  "pending": {
+    "title": "Ожидающие элементы",
+    "subtitle": "Элементы, требующие вашего внимания",
+    "empty": "Нет ожидающих элементов",
+    "requiresFollowUp": "Требуется контроль",
+    "pendingApproval": "Ожидает утверждения",
+    "pendingReview": "На рассмотрении",
+    "needsAttention": "Требует внимания",
+    "order": "Заказ",
+    "contract": "Контракт"
+  },
+  "status": {
+    "new": "Новый",
+    "pending": "В ожидании",
+    "approved": "Утвержден",
+    "inProgress": "В работе",
+    "completed": "Завершен",
+    "cancelled": "Отменен",
+    "draft": "Черновик",
+    "active": "Активный"
+  },
+  "errors": {
+    "loadFailed": "Не удалось загрузить данные",
+    "statsLoadFailed": "Не удалось загрузить статистику панели",
+    "tryAgain": "Попробуйте еще раз"
+  },
+  "languages": {
+    "en": "English",
+    "ru": "Русский",
+    "uz": "O'zbek"
+  }
+}
