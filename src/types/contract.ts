@@ -16,6 +16,7 @@ export interface Contract {
   categoryName?: string;
   description?: string;
   totalAmount: number;
+  advancePaymentAmount?: number;
   advancePaymentPercentage?: number;
   deadline?: string;
   signedDate?: string;
@@ -27,20 +28,67 @@ export interface Contract {
   updatedAt: string;
   sellerId: string;
   sellerName: string;
+  productionDurationDays?: number;
+  deliveryTerms?: string;
+  penaltyTerms?: string;
+}
+
+// Customer Entity
+export interface Customer {
+  id: string;
+  fullName: string;
+  phoneNumber: string;
+  address: string;
+}
+
+// Category Entity
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+// New Customer for wizard
+export interface NewCustomerData {
+  fullName: string;
+  phoneNumber: string;
+  address: string;
+}
+
+// Wizard Form Data
+export interface ContractWizardData {
+  // Step 1: Customer
+  isNewCustomer: boolean;
+  customerId?: string;
+  newCustomer?: NewCustomerData;
+  
+  // Step 2: Categories
+  categoryIds: string[];
+  description?: string;
+  
+  // Step 3: Payment
+  totalAmount: number;
+  advancePaymentAmount: number;
+  
+  // Step 4: Terms
+  productionDurationDays: number;
+  deliveryTerms: string;
+  penaltyTerms: string;
+  additionalNotes?: string;
 }
 
 // POST /api/Contracts - Create Request
 export interface ContractCreateRequest {
-  customerId: string;
-  categoryId?: string;
+  customerId?: string;
+  newCustomer?: NewCustomerData;
+  categoryIds: string[];
   description?: string;
   totalAmount: number;
-  advancePaymentPercentage?: number;
-  deadline?: string;
-  signedDate?: string;
-  paymentStatus?: PaymentStatus;
-  terms?: string;
-  notes?: string;
+  advancePaymentAmount: number;
+  productionDurationDays: number;
+  deliveryTerms: string;
+  penaltyTerms: string;
+  additionalNotes?: string;
 }
 
 // PUT /api/Contracts/{id} - Update Request
