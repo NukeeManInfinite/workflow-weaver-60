@@ -11,7 +11,8 @@ interface PendingItemsProps {
   onItemClick?: (item: PendingItem) => void;
 }
 
-const getTypeIcon = (type: string) => {
+const getTypeIcon = (type?: string) => {
+  if (!type) return AlertCircle;
   switch (type) {
     case 'Order':
       return ShoppingCart;
@@ -44,8 +45,11 @@ export const PendingItems: React.FC<PendingItemsProps> = ({
       ) : (
         <div className="space-y-2 max-h-[400px] overflow-y-auto">
           {items.map((item, index) => {
-            const Icon = getTypeIcon(item.type);
-            const formattedDate = isValidDate(item.createdAt) 
+            // Defensive: ensure item exists
+            if (!item) return null;
+            
+            const Icon = getTypeIcon(item?.type);
+            const formattedDate = item?.createdAt && isValidDate(item.createdAt) 
               ? formatDate(item.createdAt) 
               : '';
 
@@ -64,10 +68,10 @@ export const PendingItems: React.FC<PendingItemsProps> = ({
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">
-                      {item.type} #{item.referenceNumber}
+                      {item?.type || 'Item'} #{item?.referenceNumber || 'Unknown'}
                     </p>
                     <Badge variant="outline" className="text-xs mt-1 text-warning border-warning/30">
-                      {item.status}
+                      {item?.status || 'Pending'}
                     </Badge>
                   </div>
                 </div>

@@ -9,7 +9,8 @@ interface RecentActivityProps {
   className?: string;
 }
 
-const getActivityIcon = (type: string) => {
+const getActivityIcon = (type?: string) => {
+  if (!type) return Clock;
   switch (type) {
     case 'Order':
       return ShoppingCart;
@@ -21,8 +22,33 @@ const getActivityIcon = (type: string) => {
 };
 
 const getActionText = (activity: ActivityItem): string => {
-  const typeLabel = activity.type === 'Order' ? 'Order' : 'Contract';
-  return `${typeLabel} ${activity.referenceNumber} ${activity.action.toLowerCase()}`;
+  // Defensive: handle missing or null fields
+  const typeLabel = activity?.type === 'Order' ? 'Order' : activity?.type === 'Contract' ? 'Contract' : 'Item';
+  const refNumber = activity?.referenceNumber || 'Unknown';
+  const action = activity?.action;
+  
+  if (!action) {
+    return `${typeLabel} ${refNumber}`;
+  }
+  
+  // Safely convert to lowercase
+  const actionLower = String(action).toLowerCase();
+  
+  switch (actionLower) {
+    case 'created':
+    case 'order_created':
+      return `${typeLabel} ${refNumber} created`;
+    case 'updated':
+      return `${typeLabel} ${refNumber} updated`;
+    case 'pending':
+      return `${typeLabel} ${refNumber} pending`;
+    case 'completed':
+      return `${typeLabel} ${refNumber} completed`;
+    case 'contract_created':
+      return `Contract ${refNumber} created`;
+    default:
+      return `${typeLabel} ${refNumber} ${action}`;
+  }
 };
 
 export const RecentActivity: React.FC<RecentActivityProps> = ({
@@ -46,8 +72,11 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({
       ) : (
         <div className="divide-y divide-border">
           {activities.map((activity, index) => {
-            const Icon = getActivityIcon(activity.type);
-            const formattedDate = isValidDate(activity.createdAt) 
+            // Defensive: ensure activity exists
+            if (!activity) return null;
+            
+            const Icon = getActivityIcon(activity?.type);
+            const formattedDate = activity?.createdAt && isValidDate(activity.createdAt) 
               ? formatDate(activity.createdAt) 
               : '';
 

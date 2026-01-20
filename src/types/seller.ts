@@ -10,21 +10,21 @@ export interface StatCardData {
   trend?: 'up' | 'down';
 }
 
-// New API response types matching backend
+// Backend may return partial/null fields - all marked optional for defensive coding
 export interface ActivityItem {
-  id: string;
-  type: 'Order' | 'Contract';
-  referenceNumber: string;
-  action: 'Created' | 'Updated' | 'Pending' | 'Completed';
-  createdAt: string;
+  id?: string;
+  type?: 'Order' | 'Contract' | string;
+  referenceNumber?: string;
+  action?: 'Created' | 'Updated' | 'Pending' | 'Completed' | string;
+  createdAt?: string;
 }
 
 export interface PendingItem {
-  id: string;
-  type: 'Order' | 'Contract';
-  referenceNumber: string;
-  status: string;
-  createdAt: string;
+  id?: string;
+  type?: 'Order' | 'Contract' | string;
+  referenceNumber?: string;
+  status?: string;
+  createdAt?: string;
 }
 
 export interface SellerDashboardStats {
