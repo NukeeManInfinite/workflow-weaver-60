@@ -7,8 +7,11 @@ export interface Order {
   contractNumber?: string;
   customerId: string;
   customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
   categoryId?: string;
   categoryName?: string;
+  categoryNames?: string[] | string;
   categories?: number;
   status: OrderStatus;
   totalAmount: number;
@@ -20,6 +23,20 @@ export interface Order {
   notes?: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+// Contract summary for order creation
+export interface ContractSummary {
+  id: string;
+  contractNumber: string;
+  customerId: string;
+  customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  categoryNames?: string[];
+  totalAmount: number;
+  status: string;
+  isApproved: boolean;
 }
 
 export type OrderStatus = 'Created' | 'InProgress' | 'Completed' | 'Cancelled';

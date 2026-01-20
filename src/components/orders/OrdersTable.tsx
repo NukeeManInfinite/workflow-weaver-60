@@ -104,12 +104,22 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {orders.map((order, index) => (
+        {orders.map((order, index) => {
+          // Format category names
+          const categoryDisplay = order.categoryNames
+            ? Array.isArray(order.categoryNames)
+              ? order.categoryNames.join(', ')
+              : order.categoryNames
+            : order.categoryName || '-';
+
+          return (
           <TableRow key={`${order.id}-${index}`}>
             <TableCell className="font-medium">{order.orderNumber || '-'}</TableCell>
             <TableCell className="text-muted-foreground">{order.contractNumber || '-'}</TableCell>
             <TableCell>{order.customerName || '-'}</TableCell>
-            <TableCell>{order.categories ?? 0}</TableCell>
+            <TableCell className="max-w-[200px] truncate" title={categoryDisplay}>
+              {categoryDisplay}
+            </TableCell>
             <TableCell>${(order.totalAmount || 0).toLocaleString()}</TableCell>
             <TableCell>{getStatusBadge(order.status)}</TableCell>
             <TableCell>
@@ -152,7 +162,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               </DropdownMenu>
             </TableCell>
           </TableRow>
-        ))}
+          );
+        })}
       </TableBody>
     </Table>
   );
