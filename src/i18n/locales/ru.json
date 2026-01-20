@@ -13,7 +13,8 @@
     "filter": "Фильтр",
     "actions": "Действия",
     "noData": "Нет данных",
-    "systemActivity": "Системная активность"
+    "systemActivity": "Системная активность",
+    "actionRequired": "Требуется действие"
   },
   "dashboard": {
     "title": "Панель управления",
@@ -31,26 +32,52 @@
     "title": "Последняя активность",
     "subtitle": "Ваши последние действия и обновления",
     "empty": "Нет недавней активности",
-    "orderCreated": "Новый заказ создан",
-    "contractCreated": "Новый контракт создан",
-    "statusChanged": "Статус обновлен",
-    "updated": "Обновлено",
-    "completed": "Завершено",
-    "pending": "В ожидании",
-    "created": "Создано",
     "order": "Заказ",
-    "contract": "Контракт"
+    "contract": "Контракт",
+    "messages": {
+      "orderCreated": "Создан новый заказ",
+      "orderUpdated": "Заказ был обновлен",
+      "orderCompleted": "Заказ выполнен",
+      "orderStatusChanged": "Статус заказа обновлен",
+      "contractCreated": "Создан новый контракт",
+      "contractUpdated": "Контракт был обновлен",
+      "contractCompleted": "Контракт выполнен",
+      "contractStatusChanged": "Статус контракта обновлен",
+      "created": "Создан новый элемент",
+      "updated": "Элемент был обновлен",
+      "completed": "Элемент выполнен",
+      "statusChanged": "Статус был обновлен",
+      "default": "Обновление активности"
+    }
   },
   "pending": {
     "title": "Ожидающие элементы",
     "subtitle": "Элементы, требующие вашего внимания",
     "empty": "Нет ожидающих элементов",
-    "requiresFollowUp": "Требуется контроль",
-    "pendingApproval": "Ожидает утверждения",
-    "pendingReview": "На рассмотрении",
-    "needsAttention": "Требует внимания",
     "order": "Заказ",
-    "contract": "Контракт"
+    "contract": "Контракт",
+    "messages": {
+      "orderNeedsAttention": "Заказ {{reference}} требует вашего внимания",
+      "orderPendingApproval": "Заказ {{reference}} ожидает утверждения",
+      "orderRequiresFollowUp": "Заказ {{reference}} требует контроля",
+      "orderPendingReview": "Заказ {{reference}} на рассмотрении",
+      "contractNeedsAttention": "Контракт {{reference}} требует вашего внимания",
+      "contractPendingApproval": "Контракт {{reference}} ожидает утверждения",
+      "contractRequiresFollowUp": "Контракт {{reference}} требует контроля",
+      "contractPendingReview": "Контракт {{reference}} на рассмотрении",
+      "needsAttention": "Элемент требует вашего внимания",
+      "pendingApproval": "Элемент ожидает утверждения",
+      "requiresFollowUp": "Элемент требует контроля",
+      "pendingReview": "Элемент на рассмотрении",
+      "default": "Требуется действие"
+    },
+    "statusBadge": {
+      "needsAttention": "Требует внимания",
+      "pendingApproval": "Ожидает утверждения",
+      "requiresFollowUp": "Требует контроля",
+      "pendingReview": "На рассмотрении",
+      "default": "В ожидании"
+    }
   },
   "status": {
     "new": "Новый",

@@ -14,6 +14,7 @@ export interface StatCardData {
 // Backend may return varied field names - handle all possible shapes
 export interface ActivityItem {
   id?: string | number;
+  entityId?: number;
   type?: 'Order' | 'Contract' | string;
   entityType?: 'Order' | 'Contract' | string;
   referenceNumber?: string;
