@@ -1,6 +1,9 @@
 import React from 'react';
 import { PendingItem } from '@/types/seller';
 import { cn } from '@/lib/utils';
+import { formatDate, isValidDate } from '@/lib/dateUtils';
+import { AlertCircle, FileText, ShoppingCart } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface PendingItemsProps {
   items: PendingItem[];
@@ -8,10 +11,15 @@ interface PendingItemsProps {
   onItemClick?: (item: PendingItem) => void;
 }
 
-const priorityColors = {
-  high: 'bg-destructive',
-  medium: 'bg-warning',
-  low: 'bg-muted-foreground/40',
+const getTypeIcon = (type: string) => {
+  switch (type) {
+    case 'Order':
+      return ShoppingCart;
+    case 'Contract':
+      return FileText;
+    default:
+      return AlertCircle;
+  }
 };
 
 export const PendingItems: React.FC<PendingItemsProps> = ({
@@ -19,6 +27,8 @@ export const PendingItems: React.FC<PendingItemsProps> = ({
   className,
   onItemClick,
 }) => {
+  const hasItems = items && items.length > 0;
+
   return (
     <div className={cn('bg-card rounded-lg border border-border p-6', className)}>
       <div className="mb-4">
@@ -26,30 +36,51 @@ export const PendingItems: React.FC<PendingItemsProps> = ({
         <p className="text-sm text-muted-foreground">Items requiring your attention</p>
       </div>
 
-      <div className="space-y-3">
-        {items.map((item, index) => (
-          <div
-            key={`${item.id}-${index}`}
-            onClick={() => onItemClick?.(item)}
-            className={cn(
-              'flex items-center justify-between py-2 cursor-pointer hover:bg-muted/30 -mx-2 px-2 rounded-md transition-colors'
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <span
+      {!hasItems ? (
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <AlertCircle className="h-10 w-10 text-muted-foreground/40 mb-3" />
+          <p className="text-sm text-muted-foreground">No pending items</p>
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+          {items.map((item, index) => {
+            const Icon = getTypeIcon(item.type);
+            const formattedDate = isValidDate(item.createdAt) 
+              ? formatDate(item.createdAt) 
+              : '';
+
+            return (
+              <div
+                key={item.id || `pending-${index}`}
+                onClick={() => onItemClick?.(item)}
                 className={cn(
-                  'h-2 w-2 rounded-full flex-shrink-0',
-                  priorityColors[item.priority]
+                  'flex items-center justify-between py-3 px-3 -mx-3 rounded-md transition-colors',
+                  onItemClick && 'cursor-pointer hover:bg-muted/30'
                 )}
-              />
-              <p className="text-sm text-foreground">{item.title}</p>
-            </div>
-            <span className="text-sm text-muted-foreground whitespace-nowrap ml-4">
-              {item.dueDate}
-            </span>
-          </div>
-        ))}
-      </div>
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="rounded-lg bg-warning/10 p-2 flex-shrink-0">
+                    <Icon className="h-4 w-4 text-warning" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {item.type} #{item.referenceNumber}
+                    </p>
+                    <Badge variant="outline" className="text-xs mt-1 text-warning border-warning/30">
+                      {item.status}
+                    </Badge>
+                  </div>
+                </div>
+                {formattedDate && (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap ml-4 flex-shrink-0">
+                    {formattedDate}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

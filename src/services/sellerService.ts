@@ -34,7 +34,7 @@ export const sellerService = {
     
     return {
       activeContracts: stats.activeContracts,
-      activeContractsChange: '', // Backend can provide this if needed
+      activeContractsChange: '',
       pendingOrders: stats.pendingOrders,
       pendingOrdersChange: '',
       completedOrders: stats.completedOrders,
@@ -44,15 +44,15 @@ export const sellerService = {
   },
 
   // ==================== Activities ====================
-  async getRecentActivities(): Promise<ActivityItem[]> {
-    const response = await apiClient.get<ApiResponse<ActivityItem[]>>('/seller/activities');
-    return response.data.data;
+  async getRecentActivities(limit: number = 10): Promise<ActivityItem[]> {
+    const response = await apiClient.get<ApiResponse<ActivityItem[]>>(`/seller/activities?limit=${limit}`);
+    return response.data.data || [];
   },
 
   // ==================== Pending Items ====================
   async getPendingItems(): Promise<PendingItem[]> {
     const response = await apiClient.get<ApiResponse<PendingItem[]>>('/seller/pending-items');
-    return response.data.data;
+    return response.data.data || [];
   },
 
   // ==================== Contracts ====================
