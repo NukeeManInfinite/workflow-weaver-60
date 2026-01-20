@@ -10,18 +10,21 @@ export interface StatCardData {
   trend?: 'up' | 'down';
 }
 
+// New API response types matching backend
 export interface ActivityItem {
   id: string;
-  message: string;
-  timestamp: string;
-  type: 'order' | 'dimension' | 'task' | 'material';
+  type: 'Order' | 'Contract';
+  referenceNumber: string;
+  action: 'Created' | 'Updated' | 'Pending' | 'Completed';
+  createdAt: string;
 }
 
 export interface PendingItem {
   id: string;
-  title: string;
-  dueDate: string;
-  priority: 'high' | 'medium' | 'low';
+  type: 'Order' | 'Contract';
+  referenceNumber: string;
+  status: string;
+  createdAt: string;
 }
 
 export interface SellerDashboardStats {
