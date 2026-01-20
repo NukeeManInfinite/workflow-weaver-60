@@ -11,10 +11,10 @@ interface RecentActivityProps {
   className?: string;
 }
 
-const getActivityIcon = (type?: string) => {
-  if (!type) return Clock;
-  const normalizedType = String(type).toLowerCase();
-  switch (normalizedType) {
+const getActivityIcon = (entityType?: string | null) => {
+  if (!entityType) return Clock;
+  const normalized = String(entityType).toLowerCase();
+  switch (normalized) {
     case 'order':
       return ShoppingCart;
     case 'contract':
@@ -24,42 +24,70 @@ const getActivityIcon = (type?: string) => {
   }
 };
 
-const getActivityActionKey = (activity: ActivityItem): string => {
-  // Try to get action from various possible field names
+/**
+ * Maps activity data to a human-readable i18n message key.
+ * Combines entityType + action to create full sentence messages.
+ */
+const getActivityMessageKey = (activity: ActivityItem): string => {
+  const entityType = activity?.entityType || activity?.type;
   const action = activity?.action || activity?.message;
-  
-  if (!action) {
-    return 'activity.created';
+
+  if (!action) return 'activity.messages.default';
+
+  const normalizedAction = String(action).toLowerCase().replace(/[\s_-]/g, '');
+  const normalizedEntity = entityType ? String(entityType).toLowerCase() : '';
+
+  // Order-specific messages
+  if (normalizedEntity === 'order') {
+    if (normalizedAction.includes('created') || normalizedAction === 'created') {
+      return 'activity.messages.orderCreated';
+    }
+    if (normalizedAction.includes('updated') || normalizedAction === 'updated') {
+      return 'activity.messages.orderUpdated';
+    }
+    if (normalizedAction.includes('completed') || normalizedAction === 'completed') {
+      return 'activity.messages.orderCompleted';
+    }
+    if (normalizedAction.includes('status') || normalizedAction === 'statuschanged') {
+      return 'activity.messages.orderStatusChanged';
+    }
   }
-  
-  // Normalize action to lowercase for matching
-  const actionLower = String(action).toLowerCase().replace(/[\s_-]/g, '');
-  
-  // Map various action formats to i18n keys
-  if (actionLower.includes('ordercreated') || actionLower === 'created') {
-    return 'activity.orderCreated';
+
+  // Contract-specific messages
+  if (normalizedEntity === 'contract') {
+    if (normalizedAction.includes('created') || normalizedAction === 'created') {
+      return 'activity.messages.contractCreated';
+    }
+    if (normalizedAction.includes('updated') || normalizedAction === 'updated') {
+      return 'activity.messages.contractUpdated';
+    }
+    if (normalizedAction.includes('completed') || normalizedAction === 'completed') {
+      return 'activity.messages.contractCompleted';
+    }
+    if (normalizedAction.includes('status') || normalizedAction === 'statuschanged') {
+      return 'activity.messages.contractStatusChanged';
+    }
   }
-  if (actionLower.includes('contractcreated')) {
-    return 'activity.contractCreated';
+
+  // Generic fallbacks (no entityType or unknown entity)
+  if (normalizedAction.includes('created') || normalizedAction === 'created') {
+    return 'activity.messages.created';
   }
-  if (actionLower.includes('statuschanged') || actionLower.includes('status')) {
-    return 'activity.statusChanged';
+  if (normalizedAction.includes('updated') || normalizedAction === 'updated') {
+    return 'activity.messages.updated';
   }
-  if (actionLower.includes('updated')) {
-    return 'activity.updated';
+  if (normalizedAction.includes('completed') || normalizedAction === 'completed') {
+    return 'activity.messages.completed';
   }
-  if (actionLower.includes('completed')) {
-    return 'activity.completed';
+  if (normalizedAction.includes('status') || normalizedAction === 'statuschanged') {
+    return 'activity.messages.statusChanged';
   }
-  if (actionLower.includes('pending')) {
-    return 'activity.pending';
-  }
-  
-  return 'common.systemActivity';
+
+  return 'activity.messages.default';
 };
 
 const getEntityType = (activity: ActivityItem): 'Order' | 'Contract' | null => {
-  const type = activity?.type || activity?.entityType;
+  const type = activity?.entityType || activity?.type;
   if (!type) return null;
   
   const normalizedType = String(type).toLowerCase();
@@ -69,7 +97,7 @@ const getEntityType = (activity: ActivityItem): 'Order' | 'Contract' | null => {
 };
 
 const getReferenceNumber = (activity: ActivityItem): string | null => {
-  return activity?.referenceNumber || activity?.reference || null;
+  return activity?.reference || activity?.referenceNumber || null;
 };
 
 export const RecentActivity: React.FC<RecentActivityProps> = ({
@@ -82,7 +110,7 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({
 
   const handleActivityClick = (activity: ActivityItem) => {
     const entityType = getEntityType(activity);
-    const id = activity?.id;
+    const id = activity?.entityId || activity?.id;
     
     if (!entityType || !id) return;
     
@@ -108,22 +136,22 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({
       ) : (
         <div className="space-y-1 max-h-[350px] overflow-y-auto overflow-x-hidden">
           {activities.map((activity, index) => {
-            // Defensive: ensure activity exists
             if (!activity) return null;
             
             const entityType = getEntityType(activity);
-            const Icon = getActivityIcon(entityType || undefined);
-            const actionKey = getActivityActionKey(activity);
+            const Icon = getActivityIcon(entityType);
+            const messageKey = getActivityMessageKey(activity);
             const refNumber = getReferenceNumber(activity);
             const formattedDate = activity?.createdAt && isValidDate(activity.createdAt) 
               ? formatDate(activity.createdAt) 
               : '';
             
-            const isClickable = entityType && activity?.id;
+            const id = activity?.entityId || activity?.id;
+            const isClickable = entityType && id;
 
             return (
               <div
-                key={activity.id || `activity-${index}`}
+                key={id || `activity-${index}`}
                 onClick={() => isClickable && handleActivityClick(activity)}
                 className={cn(
                   'flex items-center justify-between py-3 px-3 -mx-3 rounded-md transition-colors',
@@ -144,7 +172,7 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground truncate">
-                      {t(actionKey)}
+                      {t(messageKey)}
                     </p>
                     {refNumber && (
                       <p className="text-xs text-muted-foreground truncate">

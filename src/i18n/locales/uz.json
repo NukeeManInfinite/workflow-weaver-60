@@ -13,7 +13,8 @@
     "filter": "Filtrlash",
     "actions": "Amallar",
     "noData": "Ma'lumot mavjud emas",
-    "systemActivity": "Tizim faoliyati"
+    "systemActivity": "Tizim faoliyati",
+    "actionRequired": "Amal talab qilinadi"
   },
   "dashboard": {
     "title": "Boshqaruv paneli",
@@ -31,26 +32,52 @@
     "title": "So'nggi faoliyat",
     "subtitle": "Sizning oxirgi harakatlaringiz va yangilanishlar",
     "empty": "So'nggi faoliyat yo'q",
-    "orderCreated": "Yangi buyurtma yaratildi",
-    "contractCreated": "Yangi shartnoma yaratildi",
-    "statusChanged": "Holat yangilandi",
-    "updated": "Yangilandi",
-    "completed": "Bajarildi",
-    "pending": "Kutilmoqda",
-    "created": "Yaratildi",
     "order": "Buyurtma",
-    "contract": "Shartnoma"
+    "contract": "Shartnoma",
+    "messages": {
+      "orderCreated": "Yangi buyurtma yaratildi",
+      "orderUpdated": "Buyurtma yangilandi",
+      "orderCompleted": "Buyurtma bajarildi",
+      "orderStatusChanged": "Buyurtma holati yangilandi",
+      "contractCreated": "Yangi shartnoma yaratildi",
+      "contractUpdated": "Shartnoma yangilandi",
+      "contractCompleted": "Shartnoma bajarildi",
+      "contractStatusChanged": "Shartnoma holati yangilandi",
+      "created": "Yangi element yaratildi",
+      "updated": "Element yangilandi",
+      "completed": "Element bajarildi",
+      "statusChanged": "Holat yangilandi",
+      "default": "Faoliyat yangilanishi"
+    }
   },
   "pending": {
     "title": "Kutilayotgan elementlar",
     "subtitle": "E'tiboringizni talab qiladigan elementlar",
     "empty": "Kutilayotgan elementlar yo'q",
-    "requiresFollowUp": "Kuzatish talab qilinadi",
-    "pendingApproval": "Tasdiqlash kutilmoqda",
-    "pendingReview": "Ko'rib chiqish kutilmoqda",
-    "needsAttention": "E'tibor talab qiladi",
     "order": "Buyurtma",
-    "contract": "Shartnoma"
+    "contract": "Shartnoma",
+    "messages": {
+      "orderNeedsAttention": "{{reference}} buyurtma e'tiboringizni talab qiladi",
+      "orderPendingApproval": "{{reference}} buyurtma tasdiqlash kutmoqda",
+      "orderRequiresFollowUp": "{{reference}} buyurtma kuzatish talab qiladi",
+      "orderPendingReview": "{{reference}} buyurtma ko'rib chiqish kutmoqda",
+      "contractNeedsAttention": "{{reference}} shartnoma e'tiboringizni talab qiladi",
+      "contractPendingApproval": "{{reference}} shartnoma tasdiqlash kutmoqda",
+      "contractRequiresFollowUp": "{{reference}} shartnoma kuzatish talab qiladi",
+      "contractPendingReview": "{{reference}} shartnoma ko'rib chiqish kutmoqda",
+      "needsAttention": "Element e'tiboringizni talab qiladi",
+      "pendingApproval": "Element tasdiqlash kutmoqda",
+      "requiresFollowUp": "Element kuzatish talab qiladi",
+      "pendingReview": "Element ko'rib chiqish kutmoqda",
+      "default": "Amal talab qilinadi"
+    },
+    "statusBadge": {
+      "needsAttention": "E'tibor talab qiladi",
+      "pendingApproval": "Tasdiqlash kutmoqda",
+      "requiresFollowUp": "Kuzatish talab qilinadi",
+      "pendingReview": "Ko'rib chiqish kutmoqda",
+      "default": "Kutilmoqda"
+    }
   },
   "status": {
     "new": "Yangi",

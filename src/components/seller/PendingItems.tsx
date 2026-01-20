@@ -12,10 +12,10 @@ interface PendingItemsProps {
   className?: string;
 }
 
-const getTypeIcon = (type?: string) => {
-  if (!type) return AlertCircle;
-  const normalizedType = String(type).toLowerCase();
-  switch (normalizedType) {
+const getTypeIcon = (entityType?: string | null) => {
+  if (!entityType) return AlertCircle;
+  const normalized = String(entityType).toLowerCase();
+  switch (normalized) {
     case 'order':
       return ShoppingCart;
     case 'contract':
@@ -25,26 +25,99 @@ const getTypeIcon = (type?: string) => {
   }
 };
 
-const getItemTypeKey = (itemType?: string): string => {
-  if (!itemType) return 'pending.needsAttention';
-  
-  const normalizedType = String(itemType).toLowerCase().replace(/[\s_-]/g, '');
-  
-  if (normalizedType.includes('followup') || normalizedType === 'requiresfollowup') {
-    return 'pending.requiresFollowUp';
+/**
+ * Normalizes status string for consistent matching.
+ */
+const normalizeStatus = (status?: string | null): string => {
+  if (!status) return '';
+  return String(status).toLowerCase().replace(/[\s_-]/g, '');
+};
+
+/**
+ * Maps pending item to a full human-readable message key.
+ * Combines entityType + status to create contextual sentences.
+ */
+const getPendingMessageKey = (
+  entityType: 'Order' | 'Contract' | null,
+  status?: string | null
+): string => {
+  const normalizedStatus = normalizeStatus(status);
+  const entity = entityType?.toLowerCase() || '';
+
+  // Build entity-specific message key
+  if (entity === 'order') {
+    if (normalizedStatus.includes('needsattention') || normalizedStatus.includes('attention')) {
+      return 'pending.messages.orderNeedsAttention';
+    }
+    if (normalizedStatus.includes('pendingapproval') || normalizedStatus.includes('approval')) {
+      return 'pending.messages.orderPendingApproval';
+    }
+    if (normalizedStatus.includes('followup') || normalizedStatus.includes('requiresfollowup')) {
+      return 'pending.messages.orderRequiresFollowUp';
+    }
+    if (normalizedStatus.includes('review') || normalizedStatus.includes('pendingreview')) {
+      return 'pending.messages.orderPendingReview';
+    }
+    return 'pending.messages.orderNeedsAttention';
   }
-  if (normalizedType.includes('approval') || normalizedType === 'pendingapproval') {
-    return 'pending.pendingApproval';
+
+  if (entity === 'contract') {
+    if (normalizedStatus.includes('needsattention') || normalizedStatus.includes('attention')) {
+      return 'pending.messages.contractNeedsAttention';
+    }
+    if (normalizedStatus.includes('pendingapproval') || normalizedStatus.includes('approval')) {
+      return 'pending.messages.contractPendingApproval';
+    }
+    if (normalizedStatus.includes('followup') || normalizedStatus.includes('requiresfollowup')) {
+      return 'pending.messages.contractRequiresFollowUp';
+    }
+    if (normalizedStatus.includes('review') || normalizedStatus.includes('pendingreview')) {
+      return 'pending.messages.contractPendingReview';
+    }
+    return 'pending.messages.contractNeedsAttention';
   }
-  if (normalizedType.includes('review') || normalizedType === 'pendingreview') {
-    return 'pending.pendingReview';
+
+  // Generic fallbacks
+  if (normalizedStatus.includes('needsattention') || normalizedStatus.includes('attention')) {
+    return 'pending.messages.needsAttention';
+  }
+  if (normalizedStatus.includes('pendingapproval') || normalizedStatus.includes('approval')) {
+    return 'pending.messages.pendingApproval';
+  }
+  if (normalizedStatus.includes('followup') || normalizedStatus.includes('requiresfollowup')) {
+    return 'pending.messages.requiresFollowUp';
+  }
+  if (normalizedStatus.includes('review') || normalizedStatus.includes('pendingreview')) {
+    return 'pending.messages.pendingReview';
+  }
+
+  return 'pending.messages.default';
+};
+
+/**
+ * Maps status to badge display text key.
+ */
+const getStatusBadgeKey = (status?: string | null): string => {
+  const normalized = normalizeStatus(status);
+  
+  if (normalized.includes('needsattention') || normalized.includes('attention')) {
+    return 'pending.statusBadge.needsAttention';
+  }
+  if (normalized.includes('pendingapproval') || normalized.includes('approval')) {
+    return 'pending.statusBadge.pendingApproval';
+  }
+  if (normalized.includes('followup') || normalized.includes('requiresfollowup')) {
+    return 'pending.statusBadge.requiresFollowUp';
+  }
+  if (normalized.includes('review') || normalized.includes('pendingreview')) {
+    return 'pending.statusBadge.pendingReview';
   }
   
-  return 'pending.needsAttention';
+  return 'pending.statusBadge.default';
 };
 
 const getEntityType = (item: PendingItem): 'Order' | 'Contract' | null => {
-  const type = item?.type || item?.entityType;
+  const type = item?.entityType || item?.type;
   if (!type) return null;
   
   const normalizedType = String(type).toLowerCase();
@@ -53,12 +126,12 @@ const getEntityType = (item: PendingItem): 'Order' | 'Contract' | null => {
   return null;
 };
 
-const getReferenceNumber = (item: PendingItem): string | null => {
-  return item?.referenceNumber || item?.reference || null;
+const getReferenceNumber = (item: PendingItem): string => {
+  return item?.reference || item?.referenceNumber || '';
 };
 
 const getItemId = (item: PendingItem): string | number | null => {
-  return item?.id || item?.entityId || null;
+  return item?.entityId || item?.id || null;
 };
 
 export const PendingItems: React.FC<PendingItemsProps> = ({
@@ -97,19 +170,23 @@ export const PendingItems: React.FC<PendingItemsProps> = ({
       ) : (
         <div className="space-y-1 max-h-[350px] overflow-y-auto overflow-x-hidden">
           {items.map((item, index) => {
-            // Defensive: ensure item exists
             if (!item) return null;
             
             const entityType = getEntityType(item);
-            const Icon = getTypeIcon(entityType || undefined);
+            const Icon = getTypeIcon(entityType);
             const refNumber = getReferenceNumber(item);
-            const itemTypeKey = getItemTypeKey(item?.itemType || item?.status);
+            const status = item?.status || item?.itemType;
+            const messageKey = getPendingMessageKey(entityType, status);
+            const statusBadgeKey = getStatusBadgeKey(status);
             const formattedDate = item?.createdAt && isValidDate(item.createdAt) 
               ? formatDate(item.createdAt) 
               : '';
             
             const itemId = getItemId(item);
             const isClickable = entityType && itemId;
+
+            // Format reference for display (with # prefix if exists)
+            const displayRef = refNumber ? `#${refNumber}` : '';
 
             return (
               <div
@@ -126,14 +203,13 @@ export const PendingItems: React.FC<PendingItemsProps> = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground truncate">
-                      {entityType ? t(`pending.${entityType.toLowerCase()}`) : t('pending.order')}
-                      {refNumber ? ` #${refNumber}` : ''}
+                      {t(messageKey, { reference: displayRef })}
                     </p>
                     <Badge 
                       variant="outline" 
                       className="text-xs mt-1 text-warning border-warning/30 max-w-full truncate"
                     >
-                      {t(itemTypeKey)}
+                      {t(statusBadgeKey)}
                     </Badge>
                   </div>
                 </div>

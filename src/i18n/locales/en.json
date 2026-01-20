@@ -13,7 +13,8 @@
     "filter": "Filter",
     "actions": "Actions",
     "noData": "No data available",
-    "systemActivity": "System activity"
+    "systemActivity": "System activity",
+    "actionRequired": "Action required"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -31,26 +32,52 @@
     "title": "Recent Activity",
     "subtitle": "Your latest actions and updates",
     "empty": "No recent activity",
-    "orderCreated": "New order created",
-    "contractCreated": "New contract created",
-    "statusChanged": "Status updated",
-    "updated": "Updated",
-    "completed": "Completed",
-    "pending": "Pending",
-    "created": "Created",
     "order": "Order",
-    "contract": "Contract"
+    "contract": "Contract",
+    "messages": {
+      "orderCreated": "New order was created",
+      "orderUpdated": "Order was updated",
+      "orderCompleted": "Order was completed",
+      "orderStatusChanged": "Order status was updated",
+      "contractCreated": "New contract was created",
+      "contractUpdated": "Contract was updated",
+      "contractCompleted": "Contract was completed",
+      "contractStatusChanged": "Contract status was updated",
+      "created": "New item was created",
+      "updated": "Item was updated",
+      "completed": "Item was completed",
+      "statusChanged": "Status was updated",
+      "default": "Activity update"
+    }
   },
   "pending": {
     "title": "Pending Items",
     "subtitle": "Items requiring your attention",
     "empty": "No pending items",
-    "requiresFollowUp": "Follow-up required",
-    "pendingApproval": "Waiting for approval",
-    "pendingReview": "Pending review",
-    "needsAttention": "Needs attention",
     "order": "Order",
-    "contract": "Contract"
+    "contract": "Contract",
+    "messages": {
+      "orderNeedsAttention": "Order {{reference}} requires your attention",
+      "orderPendingApproval": "Order {{reference}} is waiting for approval",
+      "orderRequiresFollowUp": "Order {{reference}} requires follow-up",
+      "orderPendingReview": "Order {{reference}} is pending review",
+      "contractNeedsAttention": "Contract {{reference}} requires your attention",
+      "contractPendingApproval": "Contract {{reference}} is waiting for approval",
+      "contractRequiresFollowUp": "Contract {{reference}} requires follow-up",
+      "contractPendingReview": "Contract {{reference}} is pending review",
+      "needsAttention": "Item requires your attention",
+      "pendingApproval": "Item is waiting for approval",
+      "requiresFollowUp": "Item requires follow-up",
+      "pendingReview": "Item is pending review",
+      "default": "Action required"
+    },
+    "statusBadge": {
+      "needsAttention": "Needs attention",
+      "pendingApproval": "Pending approval",
+      "requiresFollowUp": "Follow-up required",
+      "pendingReview": "Pending review",
+      "default": "Pending"
+    }
   },
   "status": {
     "new": "New",
