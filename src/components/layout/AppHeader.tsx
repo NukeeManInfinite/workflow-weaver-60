@@ -1,5 +1,6 @@
 import React from 'react';
 import { NotificationsDropdown } from '@/components/notifications';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface AppHeaderProps {
   title: string;
@@ -17,7 +18,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title, description }) => {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
           <NotificationsDropdown />
         </div>
       </div>

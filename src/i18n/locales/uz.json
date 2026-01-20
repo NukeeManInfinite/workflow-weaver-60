@@ -1,0 +1,75 @@
+{
+  "common": {
+    "loading": "Yuklanmoqda...",
+    "error": "Xatolik",
+    "success": "Muvaffaqiyatli",
+    "cancel": "Bekor qilish",
+    "save": "Saqlash",
+    "delete": "O'chirish",
+    "edit": "Tahrirlash",
+    "view": "Ko'rish",
+    "create": "Yaratish",
+    "search": "Qidirish",
+    "filter": "Filtrlash",
+    "actions": "Amallar",
+    "noData": "Ma'lumot mavjud emas",
+    "systemActivity": "Tizim faoliyati"
+  },
+  "dashboard": {
+    "title": "Boshqaruv paneli",
+    "welcome": "Xush kelibsiz",
+    "statistics": "Statistika",
+    "statsError": "Statistikani yuklab bo'lmadi"
+  },
+  "stats": {
+    "activeContracts": "Faol shartnomalar",
+    "pendingOrders": "Kutilayotgan buyurtmalar",
+    "completedOrders": "Bajarilgan buyurtmalar",
+    "totalRevenue": "Umumiy daromad"
+  },
+  "activity": {
+    "title": "So'nggi faoliyat",
+    "subtitle": "Sizning oxirgi harakatlaringiz va yangilanishlar",
+    "empty": "So'nggi faoliyat yo'q",
+    "orderCreated": "Yangi buyurtma yaratildi",
+    "contractCreated": "Yangi shartnoma yaratildi",
+    "statusChanged": "Holat yangilandi",
+    "updated": "Yangilandi",
+    "completed": "Bajarildi",
+    "pending": "Kutilmoqda",
+    "created": "Yaratildi",
+    "order": "Buyurtma",
+    "contract": "Shartnoma"
+  },
+  "pending": {
+    "title": "Kutilayotgan elementlar",
+    "subtitle": "E'tiboringizni talab qiladigan elementlar",
+    "empty": "Kutilayotgan elementlar yo'q",
+    "requiresFollowUp": "Kuzatish talab qilinadi",
+    "pendingApproval": "Tasdiqlash kutilmoqda",
+    "pendingReview": "Ko'rib chiqish kutilmoqda",
+    "needsAttention": "E'tibor talab qiladi",
+    "order": "Buyurtma",
+    "contract": "Shartnoma"
+  },
+  "status": {
+    "new": "Yangi",
+    "pending": "Kutilmoqda",
+    "approved": "Tasdiqlangan",
+    "inProgress": "Jarayonda",
+    "completed": "Bajarilgan",
+    "cancelled": "Bekor qilingan",
+    "draft": "Qoralama",
+    "active": "Faol"
+  },
+  "errors": {
+    "loadFailed": "Ma'lumotlarni yuklab bo'lmadi",
+    "statsLoadFailed": "Panel statistikasini yuklab bo'lmadi",
+    "tryAgain": "Iltimos, qaytadan urinib ko'ring"
+  },
+  "languages": {
+    "en": "English",
+    "ru": "Русский",
+    "uz": "O'zbek"
+  }
+}

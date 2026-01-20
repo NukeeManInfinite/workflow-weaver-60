@@ -1,72 +1,109 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StatCard, RecentActivity, PendingItems } from '@/components/seller';
 import { sellerService } from '@/services/sellerService';
 import { StatCardData, ActivityItem, PendingItem } from '@/types/seller';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { isValidDate } from '@/lib/dateUtils';
 
 export const SellerDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<StatCardData[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const [isLoadingPending, setIsLoadingPending] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      // Fetch all data in parallel
-      const statsPromise = sellerService.getDashboardStats()
-        .then((statsData) => {
-          setStats(sellerService.transformStatsToCards(statsData));
-        })
-        .catch((err) => {
-          console.error('Failed to fetch dashboard stats:', err);
+  const fetchDashboardData = async (isRefresh = false) => {
+    if (isRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoadingStats(true);
+      setIsLoadingActivities(true);
+      setIsLoadingPending(true);
+    }
+
+    // Fetch all data in parallel
+    const statsPromise = sellerService.getDashboardStats()
+      .then((statsData) => {
+        setStats(sellerService.transformStatsToCards(statsData));
+      })
+      .catch((err) => {
+        console.error('Failed to fetch dashboard stats:', err);
+        if (!isRefresh) {
           toast({
-            title: 'Error',
-            description: 'Failed to load dashboard statistics',
+            title: t('common.error'),
+            description: t('errors.statsLoadFailed'),
             variant: 'destructive',
           });
-        })
-        .finally(() => setIsLoadingStats(false));
+        }
+      })
+      .finally(() => setIsLoadingStats(false));
 
-      const activitiesPromise = sellerService.getRecentActivities(10)
-        .then((activitiesData) => {
-          setActivities(activitiesData);
-        })
-        .catch((err) => {
-          console.error('Failed to fetch activities:', err);
-        })
-        .finally(() => setIsLoadingActivities(false));
+    const activitiesPromise = sellerService.getRecentActivities(10)
+      .then((activitiesData) => {
+        // Filter out items with invalid dates if needed
+        const validActivities = (activitiesData || []).filter(a => a !== null && a !== undefined);
+        setActivities(validActivities);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch activities:', err);
+      })
+      .finally(() => setIsLoadingActivities(false));
 
-      const pendingPromise = sellerService.getPendingItems()
-        .then((pendingData) => {
-          // Sort by createdAt DESC
-          const sorted = [...pendingData].sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-          setPendingItems(sorted);
-        })
-        .catch((err) => {
-          console.error('Failed to fetch pending items:', err);
-        })
-        .finally(() => setIsLoadingPending(false));
+    const pendingPromise = sellerService.getPendingItems()
+      .then((pendingData) => {
+        // Filter valid items and sort by createdAt DESC
+        const validItems = (pendingData || []).filter(item => item !== null && item !== undefined);
+        const sorted = validItems.sort((a, b) => {
+          const dateA = a.createdAt && isValidDate(a.createdAt) ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt && isValidDate(b.createdAt) ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        setPendingItems(sorted);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch pending items:', err);
+      })
+      .finally(() => setIsLoadingPending(false));
 
-      await Promise.allSettled([statsPromise, activitiesPromise, pendingPromise]);
-    };
+    await Promise.allSettled([statsPromise, activitiesPromise, pendingPromise]);
+    setIsRefreshing(false);
+  };
 
+  useEffect(() => {
     fetchDashboardData();
   }, []);
 
-  const handlePendingItemClick = (item: PendingItem) => {
-    console.log('Pending item clicked:', item);
-    // TODO: Navigate to relevant page based on item type
+  const handleRefresh = () => {
+    fetchDashboardData(true);
   };
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
+      {/* Header with refresh button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">{t('dashboard.title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('dashboard.welcome')}</p>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? t('common.loading') : ''}
+        </Button>
+      </div>
+
       {/* Stat Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {isLoadingStats ? (
@@ -80,7 +117,7 @@ export const SellerDashboard: React.FC = () => {
         ) : (
           <div className="col-span-4 flex items-center justify-center py-8 text-muted-foreground">
             <AlertCircle className="h-5 w-5 mr-2" />
-            Unable to load statistics
+            {t('dashboard.statsError')}
           </div>
         )}
       </div>
@@ -96,7 +133,7 @@ export const SellerDashboard: React.FC = () => {
         {isLoadingPending ? (
           <Skeleton className="h-64 rounded-lg" />
         ) : (
-          <PendingItems items={pendingItems} onItemClick={handlePendingItemClick} />
+          <PendingItems items={pendingItems} />
         )}
       </div>
     </div>
