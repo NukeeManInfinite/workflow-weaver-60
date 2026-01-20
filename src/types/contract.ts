@@ -14,6 +14,7 @@ export interface Contract {
   customerName: string;
   categoryId?: string;
   categoryName?: string;
+  categoryNames?: string[] | string; // Backend may return array or comma-separated string
   description?: string;
   totalAmount: number;
   advancePaymentAmount?: number;
