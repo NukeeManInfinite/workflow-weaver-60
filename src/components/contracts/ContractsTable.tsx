@@ -19,8 +19,27 @@ interface ContractsTableProps {
   onView: (contract: Contract) => void;
   onEdit: (contract: Contract) => void;
   onDelete: (contract: Contract) => void;
-  onStatusChange: (contract: Contract, newStatus: ContractStatus) => void;
+  onStatusChange: (contract: Contract, newStatus: ContractStatus) => Promise<void>;
 }
+
+// Format category names - handles array or string from backend
+const formatCategoryNames = (contract: Contract): string => {
+  // First try categoryNames (array or string)
+  if (contract.categoryNames) {
+    if (Array.isArray(contract.categoryNames)) {
+      return contract.categoryNames.length > 0 ? contract.categoryNames.join(', ') : '-';
+    }
+    // If it's a string, return as-is
+    return contract.categoryNames || '-';
+  }
+  // Fallback to single categoryName
+  return contract.categoryName || '-';
+};
+
+// Format seller name safely
+const formatSellerName = (sellerName?: string): string => {
+  return sellerName?.trim() || '-';
+};
 
 // Format date safely - filter out invalid dates like 0001-01-01
 const formatDate = (dateString?: string): string => {
@@ -56,6 +75,17 @@ export const ContractsTable: React.FC<ContractsTableProps> = ({
   onDelete,
   onStatusChange,
 }) => {
+  const [updatingStatusId, setUpdatingStatusId] = React.useState<string | null>(null);
+
+  const handleStatusChange = async (contract: Contract, newStatus: ContractStatus) => {
+    setUpdatingStatusId(contract.id);
+    try {
+      await onStatusChange(contract, newStatus);
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
   // Loading skeleton
   if (loading) {
     return (
@@ -71,8 +101,8 @@ export const ContractsTable: React.FC<ContractsTableProps> = ({
   if (!contracts || contracts.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        <p className="text-lg font-medium">No contracts available</p>
-        <p className="text-sm mt-1">Create your first contract to get started.</p>
+        <p className="text-lg font-medium">Shartnomalar mavjud emas</p>
+        <p className="text-sm mt-1">Birinchi shartnomangizni yarating.</p>
       </div>
     );
   }
@@ -82,14 +112,14 @@ export const ContractsTable: React.FC<ContractsTableProps> = ({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Contract #</TableHead>
-            <TableHead>Customer</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Amount</TableHead>
+            <TableHead>Shartnoma №</TableHead>
+            <TableHead>Mijoz</TableHead>
+            <TableHead>Kategoriya</TableHead>
+            <TableHead>Summa</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Created</TableHead>
-            <TableHead>Seller</TableHead>
-            <TableHead className="w-[80px]">Actions</TableHead>
+            <TableHead>Yaratilgan</TableHead>
+            <TableHead>Sotuvchi</TableHead>
+            <TableHead className="w-[80px]">Amallar</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -99,16 +129,19 @@ export const ContractsTable: React.FC<ContractsTableProps> = ({
                 {contract.contractNumber || '-'}
               </TableCell>
               <TableCell>{contract.customerName || '-'}</TableCell>
-              <TableCell>{contract.categoryName || '-'}</TableCell>
+              <TableCell className="max-w-[200px] truncate" title={formatCategoryNames(contract)}>
+                {formatCategoryNames(contract)}
+              </TableCell>
               <TableCell>{formatCurrency(contract.totalAmount)}</TableCell>
               <TableCell>
                 <ContractStatusDropdown
                   value={contract.status}
-                  onChange={(newStatus) => onStatusChange(contract, newStatus)}
+                  onChange={(newStatus) => handleStatusChange(contract, newStatus)}
+                  disabled={updatingStatusId === contract.id}
                 />
               </TableCell>
               <TableCell>{formatDate(contract.createdAt)}</TableCell>
-              <TableCell>{contract.sellerName || '-'}</TableCell>
+              <TableCell>{formatSellerName(contract.sellerName)}</TableCell>
               <TableCell>
                 <ContractActionsMenu
                   contract={contract}

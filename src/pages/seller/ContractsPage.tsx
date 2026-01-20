@@ -119,21 +119,32 @@ export default function ContractsPage() {
     setPageNumber(1);
   };
 
-  const handleStatusChange = async (contract: Contract, newStatus: ContractStatus) => {
+  const handleStatusChange = async (contract: Contract, newStatus: ContractStatus): Promise<void> => {
     try {
       await contractService.updateStatus(contract.id, { status: newStatus });
+      // Update local state optimistically
+      setContracts((prev) =>
+        prev.map((c) => (c.id === contract.id ? { ...c, status: newStatus } : c))
+      );
       toast({
         title: 'Muvaffaqiyat',
-        description: 'Status yangilandi',
+        description: `Status "${newStatus}" ga o'zgartirildi`,
       });
-      loadContracts();
+      // Refresh stats in background
       loadStats();
     } catch (error: any) {
+      // Show detailed error from backend
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.errors?.join(', ') ||
+        'Statusni yangilashda xatolik yuz berdi';
       toast({
-        title: 'Xatolik',
-        description: error.response?.data?.message || 'Statusni yangilashda xatolik',
+        title: 'Status yangilanmadi',
+        description: errorMessage,
         variant: 'destructive',
       });
+      // Re-throw to let table know it failed (for reverting UI if needed)
+      throw error;
     }
   };
 
