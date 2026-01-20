@@ -48,55 +48,54 @@ export const ContractSelector: React.FC<ContractSelectorProps> = ({
     fetchContracts();
   }, []);
 
+  // Build contract summary from contract data
+  const buildContractSummary = (contract: Contract): ContractSummary => {
+    return {
+      id: String(contract.id),
+      contractNumber: contract.contractNumber,
+      customerId: contract.customerId ? String(contract.customerId) : '',
+      customerName: contract.customerName,
+      customerPhone: contract.customerPhone,
+      customerAddress: contract.customerAddress,
+      categoryNames: Array.isArray(contract.categoryNames)
+        ? contract.categoryNames
+        : typeof contract.categoryNames === 'string'
+        ? [contract.categoryNames]
+        : [],
+      totalAmount: contract.totalAmount,
+      status: contract.status,
+      isApproved: contract.status === 'Active' || contract.status === 'Completed',
+    };
+  };
+
+  // Update selected contract when value or contracts change
   useEffect(() => {
     if (value && contracts.length > 0) {
-      const contract = contracts.find((c) => c.id === value);
+      // Compare as strings to handle both number and string IDs from backend
+      const contract = contracts.find((c) => String(c.id) === String(value));
       if (contract) {
-        const summary: ContractSummary = {
-          id: contract.id,
-          contractNumber: contract.contractNumber,
-          customerId: contract.customerId || '',
-          customerName: contract.customerName,
-          customerPhone: contract.customerPhone,
-          customerAddress: contract.customerAddress,
-          categoryNames: Array.isArray(contract.categoryNames)
-            ? contract.categoryNames
-            : typeof contract.categoryNames === 'string'
-            ? [contract.categoryNames]
-            : [],
-          totalAmount: contract.totalAmount,
-          status: contract.status,
-          isApproved: contract.status === 'Active' || contract.status === 'Completed',
-        };
-        setSelectedContract(summary);
+        setSelectedContract(buildContractSummary(contract));
+      } else {
+        setSelectedContract(null);
       }
     } else {
       setSelectedContract(null);
     }
   }, [value, contracts]);
 
-  const handleSelect = (contractId: string) => {
-    const contract = contracts.find((c) => c.id === contractId);
+  const handleSelect = (contractIdStr: string) => {
+    console.log('Contract selected:', contractIdStr);
+    
+    // Find contract by comparing as strings
+    const contract = contracts.find((c) => String(c.id) === contractIdStr);
+    
     if (contract) {
-      const summary: ContractSummary = {
-        id: contract.id,
-        contractNumber: contract.contractNumber,
-        customerId: contract.customerId || '',
-        customerName: contract.customerName,
-        customerPhone: contract.customerPhone,
-        customerAddress: contract.customerAddress,
-        categoryNames: Array.isArray(contract.categoryNames)
-          ? contract.categoryNames
-          : typeof contract.categoryNames === 'string'
-          ? [contract.categoryNames]
-          : [],
-        totalAmount: contract.totalAmount,
-        status: contract.status,
-        isApproved: contract.status === 'Active' || contract.status === 'Completed',
-      };
+      const summary = buildContractSummary(contract);
+      console.log('Contract found:', summary);
       setSelectedContract(summary);
-      onChange(contractId, summary);
+      onChange(contractIdStr, summary);
     } else {
+      console.error('Contract not found for ID:', contractIdStr);
       setSelectedContract(null);
       onChange('', null);
     }
@@ -122,40 +121,47 @@ export const ContractSelector: React.FC<ContractSelectorProps> = ({
     <div className="space-y-4">
       <div className="space-y-2">
         <Select
-          value={value}
+          value={value || undefined}
           onValueChange={handleSelect}
           disabled={disabled}
         >
           <SelectTrigger className={error ? 'border-destructive' : ''}>
             <SelectValue placeholder="Select a contract" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-background border shadow-lg z-50">
             {contracts.length === 0 ? (
               <div className="p-4 text-center text-muted-foreground text-sm">
                 No contracts available
               </div>
             ) : (
-              contracts.map((contract) => (
-                <SelectItem key={contract.id} value={contract.id}>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{contract.contractNumber}</span>
-                    <span className="text-muted-foreground">-</span>
-                    <span>{contract.customerName}</span>
-                    <Badge
-                      variant={
-                        contract.status === 'Active'
-                          ? 'default'
-                          : contract.status === 'Draft'
-                          ? 'secondary'
-                          : 'outline'
-                      }
-                      className="ml-2 text-xs"
-                    >
-                      {contract.status}
-                    </Badge>
-                  </div>
-                </SelectItem>
-              ))
+              contracts.map((contract) => {
+                const idStr = String(contract.id);
+                return (
+                  <SelectItem 
+                    key={idStr} 
+                    value={idStr}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{contract.contractNumber}</span>
+                      <span className="text-muted-foreground">-</span>
+                      <span>{contract.customerName}</span>
+                      <Badge
+                        variant={
+                          contract.status === 'Active'
+                            ? 'default'
+                            : contract.status === 'Draft'
+                            ? 'secondary'
+                            : 'outline'
+                        }
+                        className="ml-2 text-xs"
+                      >
+                        {contract.status}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                );
+              })
             )}
           </SelectContent>
         </Select>
