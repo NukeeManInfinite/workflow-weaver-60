@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Factory, Loader2, AlertCircle } from 'lucide-react';
+import { getRoleDashboardPath } from '@/lib/roleRedirect';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -18,16 +19,17 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      await login({ email, password });
-      navigate(from, { replace: true });
+      const user = await login({ email, password });
+      // Get role-based redirect path
+      const redirectPath = (location.state as { from?: { pathname: string } })?.from?.pathname 
+        || getRoleDashboardPath(user.role);
+      navigate(redirectPath, { replace: true });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
     } finally {
