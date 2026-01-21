@@ -205,7 +205,7 @@ export const OrdersPage: React.FC = () => {
     if (!selectedOrder) return;
     setSubmitting(true);
     try {
-      await ordersApi.assignConstructor(selectedOrder.id, { userId });
+      await ordersApi.assignConstructor(selectedOrder.id, { constructorId: Number(userId) });
       toast({ title: 'Success', description: 'Constructor assigned successfully' });
       setAssignConstructorModalOpen(false);
       setSelectedOrder(null);
@@ -226,7 +226,7 @@ export const OrdersPage: React.FC = () => {
     if (!selectedOrder) return;
     setSubmitting(true);
     try {
-      await ordersApi.assignProductionManager(selectedOrder.id, { userId });
+      await ordersApi.assignProductionManager(selectedOrder.id, { productionManagerId: Number(userId) });
       toast({ title: 'Success', description: 'Production manager assigned successfully' });
       setAssignManagerModalOpen(false);
       setSelectedOrder(null);

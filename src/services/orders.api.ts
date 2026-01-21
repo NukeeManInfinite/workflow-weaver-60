@@ -4,7 +4,8 @@ import {
   OrderStats,
   CreateOrderDto,
   UpdateOrderDto,
-  AssignOrderDto,
+  AssignConstructorDto,
+  AssignProductionManagerDto,
   OrdersQueryParams,
   PaginatedOrdersResponse,
   ApiResponse,
@@ -47,12 +48,12 @@ export const ordersApi = {
   },
 
   // POST /api/Orders/{id}/assign-constructor - Assign constructor to order
-  async assignConstructor(id: string, dto: AssignOrderDto): Promise<void> {
+  async assignConstructor(id: string, dto: AssignConstructorDto): Promise<void> {
     await apiClient.post(`/Orders/${id}/assign-constructor`, dto);
   },
 
   // POST /api/Orders/{id}/assign-production-manager - Assign production manager
-  async assignProductionManager(id: string, dto: AssignOrderDto): Promise<void> {
+  async assignProductionManager(id: string, dto: AssignProductionManagerDto): Promise<void> {
     await apiClient.post(`/Orders/${id}/assign-production-manager`, dto);
   },
 };
