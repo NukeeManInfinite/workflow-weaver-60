@@ -41,7 +41,20 @@ export const contractService = {
    */
   async getStats(): Promise<ContractStats> {
     const response = await apiClient.get<ApiResponse<ContractStats>>(`${BASE_URL}/stats`);
-    return response.data.data;
+    console.log('Stats API response:', response.data);
+    
+    // Handle different response formats - backend might return data directly or nested
+    const rawData = response.data.data || response.data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = rawData as any;
+    
+    // Normalize field names (handle both camelCase and PascalCase from backend)
+    return {
+      totalContracts: data.totalContracts ?? data.TotalContracts ?? 0,
+      activeContracts: data.activeContracts ?? data.ActiveContracts ?? 0,
+      completedContracts: data.completedContracts ?? data.CompletedContracts ?? 0,
+      draftContracts: data.draftContracts ?? data.DraftContracts ?? 0,
+    };
   },
 
   /**
