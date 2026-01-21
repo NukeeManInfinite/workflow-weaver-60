@@ -92,20 +92,48 @@ export default function ContractsPage() {
     }
   }, [pageNumber, pageSize, searchTerm, statusFilter, sortBy, sortDesc, toast]);
 
+  // Calculate stats from local contracts data as fallback
+  const calculateStatsFromContracts = useCallback((contractsList: Contract[]): ContractStats => {
+    const normalizeStatus = (status: unknown): string => {
+      if (typeof status === 'number') {
+        const map: Record<number, string> = { 0: 'Draft', 1: 'Active', 2: 'Completed', 3: 'Cancelled' };
+        return map[status] || 'Draft';
+      }
+      return String(status);
+    };
+    
+    return {
+      totalContracts: contractsList.length,
+      activeContracts: contractsList.filter(c => normalizeStatus(c.status) === 'Active').length,
+      completedContracts: contractsList.filter(c => normalizeStatus(c.status) === 'Completed').length,
+      draftContracts: contractsList.filter(c => normalizeStatus(c.status) === 'Draft').length,
+    };
+  }, []);
+
   const loadStats = async () => {
     setStatsLoading(true);
     try {
       const result = await contractService.getStats();
       console.log('Stats loaded:', result);
-      setStats(result);
+      // Check if stats are actually populated (not all zeros when we have data)
+      if (result.totalContracts > 0 || contracts.length === 0) {
+        setStats(result);
+      } else if (contracts.length > 0) {
+        // API returned zeros but we have data - use fallback
+        console.log('Stats API returned zeros, using fallback calculation');
+        setStats(calculateStatsFromContracts(contracts));
+      } else {
+        setStats(result);
+      }
     } catch (error: any) {
       console.error('Failed to load stats:', error);
       // If stats API fails, calculate from contracts data as fallback
-      toast({
-        title: 'Ogohlantirish',
-        description: 'Statistika yuklanmadi',
-        variant: 'destructive',
-      });
+      if (contracts.length > 0) {
+        console.log('Stats API failed, using fallback calculation');
+        setStats(calculateStatsFromContracts(contracts));
+      } else {
+        setStats({ totalContracts: 0, activeContracts: 0, completedContracts: 0, draftContracts: 0 });
+      }
     } finally {
       setStatsLoading(false);
     }
@@ -115,9 +143,10 @@ export default function ContractsPage() {
     loadContracts();
   }, [loadContracts]);
 
+  // Reload stats when contracts change (for fallback calculation)
   useEffect(() => {
     loadStats();
-  }, []);
+  }, [contracts.length]);
 
   // Handlers
   const handleSearch = (value: string) => {
