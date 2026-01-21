@@ -48,13 +48,13 @@ export const UserSelector: React.FC<UserSelectorProps> = ({
     const fetchUsers = async () => {
       setLoading(true);
       try {
-        let endpoint = '/users';
+        let endpoint = '/Users';
         
         // Use specific endpoints for constructors and production managers
         if (filterRole === 'constructor') {
-          endpoint = '/users/constructors';
+          endpoint = '/Users/constructors';
         } else if (filterRole === 'productionManager') {
-          endpoint = '/users/production-managers';
+          endpoint = '/Users/production-managers';
         }
         
         const response = await apiClient.get<ApiResponse<UserOption[]>>(endpoint);
