@@ -29,8 +29,9 @@ const getActivityIcon = (entityType?: string | null) => {
  * Combines entityType + action to create full sentence messages.
  */
 const getActivityMessageKey = (activity: ActivityItem): string => {
-  const entityType = activity?.entityType || activity?.type;
-  const action = activity?.action || activity?.message;
+  // Backend uses relatedEntityType, check multiple field names
+  const entityType = activity?.relatedEntityType || activity?.entityType || activity?.type;
+  const action = activity?.action || activity?.message || activity?.description;
 
   if (!action) return 'activity.messages.default';
 
@@ -87,7 +88,8 @@ const getActivityMessageKey = (activity: ActivityItem): string => {
 };
 
 const getEntityType = (activity: ActivityItem): 'Order' | 'Contract' | null => {
-  const type = activity?.entityType || activity?.type;
+  // Backend uses relatedEntityType, but also check entityType and type as fallbacks
+  const type = activity?.relatedEntityType || activity?.entityType || activity?.type;
   if (!type) return null;
   
   const normalizedType = String(type).toLowerCase();
@@ -97,7 +99,7 @@ const getEntityType = (activity: ActivityItem): 'Order' | 'Contract' | null => {
 };
 
 const getReferenceNumber = (activity: ActivityItem): string | null => {
-  return activity?.reference || activity?.referenceNumber || null;
+  return activity?.reference || activity?.referenceNumber || activity?.description || null;
 };
 
 export const RecentActivity: React.FC<RecentActivityProps> = ({
