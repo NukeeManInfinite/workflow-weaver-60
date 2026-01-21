@@ -47,6 +47,8 @@ export const SellerDashboard: React.FC = () => {
 
     const activitiesPromise = sellerService.getRecentActivities(10)
       .then((activitiesData) => {
+        // DEBUG: Log raw activity data structure
+        console.log('📋 RAW ACTIVITIES DATA:', JSON.stringify(activitiesData, null, 2));
         // Filter out items with invalid dates if needed
         const validActivities = (activitiesData || []).filter(a => a !== null && a !== undefined);
         setActivities(validActivities);
@@ -58,6 +60,8 @@ export const SellerDashboard: React.FC = () => {
 
     const pendingPromise = sellerService.getPendingItems()
       .then((pendingData) => {
+        // DEBUG: Log raw pending items data structure
+        console.log('📌 RAW PENDING ITEMS DATA:', JSON.stringify(pendingData, null, 2));
         // Filter valid items and sort by createdAt DESC
         const validItems = (pendingData || []).filter(item => item !== null && item !== undefined);
         const sorted = validItems.sort((a, b) => {
