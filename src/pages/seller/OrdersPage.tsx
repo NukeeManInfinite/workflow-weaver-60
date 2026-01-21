@@ -248,7 +248,7 @@ export const OrdersPage: React.FC = () => {
   const canNext = pageNumber < totalPages;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <AppHeader 
         title="Orders"
         description="Manage and track all orders"
@@ -256,45 +256,73 @@ export const OrdersPage: React.FC = () => {
 
       <div className="p-6 space-y-6 animate-fade-in">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              {loadingStats ? (
-                <Skeleton className="h-10 w-20" />
-              ) : (
-                <div className="text-2xl font-bold">{stats?.totalOrders ?? 0}</div>
-              )}
-              <div className="text-sm text-muted-foreground">Total Orders</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <Card className="border border-border/50">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
+                  {loadingStats ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-3xl font-bold">{stats?.totalOrders ?? 0}</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-xl bg-info/10">
+                  <Plus className="h-6 w-6 text-info" />
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              {loadingStats ? (
-                <Skeleton className="h-10 w-20" />
-              ) : (
-                <div className="text-2xl font-bold text-warning">{stats?.created ?? 0}</div>
-              )}
-              <div className="text-sm text-muted-foreground">Created</div>
+          <Card className="border border-border/50">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Created</p>
+                  {loadingStats ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-3xl font-bold text-warning">{stats?.created ?? 0}</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-xl bg-warning/10">
+                  <Filter className="h-6 w-6 text-warning" />
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              {loadingStats ? (
-                <Skeleton className="h-10 w-20" />
-              ) : (
-                <div className="text-2xl font-bold text-info">{stats?.inProgress ?? 0}</div>
-              )}
-              <div className="text-sm text-muted-foreground">In Progress</div>
+          <Card className="border border-border/50">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">In Progress</p>
+                  {loadingStats ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-3xl font-bold text-info">{stats?.inProgress ?? 0}</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-xl bg-info/10">
+                  <Search className="h-6 w-6 text-info" />
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              {loadingStats ? (
-                <Skeleton className="h-10 w-20" />
-              ) : (
-                <div className="text-2xl font-bold text-success">{stats?.completed ?? 0}</div>
-              )}
-              <div className="text-sm text-muted-foreground">Completed</div>
+          <Card className="border border-border/50">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Completed</p>
+                  {loadingStats ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-3xl font-bold text-success">{stats?.completed ?? 0}</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-xl bg-success/10">
+                  <ChevronRight className="h-6 w-6 text-success" />
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -351,9 +379,9 @@ export const OrdersPage: React.FC = () => {
         </div>
 
         {/* Orders Table */}
-        <Card>
+        <Card className="border border-border/50">
           <CardHeader>
-            <CardTitle>All Orders</CardTitle>
+            <CardTitle className="text-lg font-semibold">All Orders</CardTitle>
           </CardHeader>
           <CardContent>
             <OrdersTable
