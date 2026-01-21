@@ -3,6 +3,7 @@ export { MaterialRequestsPage } from './MaterialRequestsPage';
 export { ConstructorDashboard } from './ConstructorDashboard';
 export { ConstructorOrdersPage } from './ConstructorOrdersPage';
 export { FurnitureTypesPage } from './FurnitureTypesPage';
+export { FurnitureTypeDetailPage } from './FurnitureTypeDetailPage';
 export { DetailsPage } from './DetailsPage';
 export { DrawingsPage } from './DrawingsPage';
 export { TechnicalSpecsPage } from './TechnicalSpecsPage';
