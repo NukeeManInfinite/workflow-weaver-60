@@ -32,6 +32,7 @@
     "title": "So'nggi faoliyat",
     "subtitle": "Sizning oxirgi harakatlaringiz va yangilanishlar",
     "empty": "So'nggi faoliyat yo'q",
+    "detailsUnavailable": "Tafsilotlar mavjud emas",
     "order": "Buyurtma",
     "contract": "Shartnoma",
     "messages": {
@@ -47,13 +48,15 @@
       "updated": "Element yangilandi",
       "completed": "Element bajarildi",
       "statusChanged": "Holat yangilandi",
+      "unknown": "Noma'lum faoliyat",
       "default": "Faoliyat yangilanishi"
     }
   },
   "pending": {
     "title": "Kutilayotgan elementlar",
     "subtitle": "E'tiboringizni talab qiladigan elementlar",
-    "empty": "Kutilayotgan elementlar yo'q",
+    "empty": "Hech narsa e'tiboringizni talab qilmaydi",
+    "detailsUnavailable": "Tafsilotlar mavjud emas",
     "order": "Buyurtma",
     "contract": "Shartnoma",
     "messages": {
@@ -69,6 +72,7 @@
       "pendingApproval": "Element tasdiqlash kutmoqda",
       "requiresFollowUp": "Element kuzatish talab qiladi",
       "pendingReview": "Element ko'rib chiqish kutmoqda",
+      "unknown": "Noma'lum element",
       "default": "Amal talab qilinadi"
     },
     "statusBadge": {

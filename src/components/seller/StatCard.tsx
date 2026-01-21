@@ -49,12 +49,23 @@ export const StatCard: React.FC<StatCardProps> = ({ data, className }) => {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (data.navigateTo && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      navigate(data.navigateTo);
+    }
+  };
+
   return (
     <div
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      tabIndex={data.navigateTo ? 0 : undefined}
+      role={data.navigateTo ? 'button' : undefined}
+      aria-label={data.navigateTo ? t(data.titleKey) : undefined}
       className={cn(
         'bg-card rounded-lg border border-border p-5 transition-all duration-200',
-        data.navigateTo && 'cursor-pointer hover:shadow-md hover:border-primary/20',
+        data.navigateTo && 'cursor-pointer hover:shadow-md hover:border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/50',
         className
       )}
     >

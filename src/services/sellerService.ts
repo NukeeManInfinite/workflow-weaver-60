@@ -103,7 +103,7 @@ export const sellerService = {
         subtext: stats.activeContractsChange || undefined,
         icon: 'document',
         color: 'blue',
-        navigateTo: '/seller/contracts',
+        navigateTo: '/seller/contracts?status=Active',
       },
       {
         id: 'pending-orders',
@@ -112,7 +112,7 @@ export const sellerService = {
         subtext: stats.pendingOrdersChange || undefined,
         icon: 'cart',
         color: 'orange',
-        navigateTo: '/seller/orders',
+        navigateTo: '/seller/orders?status=Pending',
       },
       {
         id: 'completed-orders',
@@ -120,7 +120,7 @@ export const sellerService = {
         value: stats.completedOrders,
         icon: 'checkmark',
         color: 'green',
-        navigateTo: '/seller/orders',
+        navigateTo: '/seller/orders?status=Completed',
       },
       {
         id: 'total-revenue',
@@ -129,6 +129,7 @@ export const sellerService = {
         subtext: stats.revenueChange || undefined,
         icon: 'chart',
         color: 'gray',
+        navigateTo: '/seller/contracts',
       },
     ];
   },

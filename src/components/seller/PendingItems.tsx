@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { formatDate, isValidDate } from '@/lib/dateUtils';
 import { AlertCircle, FileText, ShoppingCart, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PendingItemsProps {
   items: PendingItem[];
@@ -150,10 +151,16 @@ export const PendingItems: React.FC<PendingItemsProps> = ({
     if (!entityType || !id) return;
     
     if (entityType === 'Order') {
-      navigate('/seller/orders');
+      navigate(`/seller/orders?highlight=${id}`);
     } else if (entityType === 'Contract') {
-      navigate('/seller/contracts');
+      navigate(`/seller/contracts?highlight=${id}`);
     }
+  };
+
+  const isItemClickable = (item: PendingItem): boolean => {
+    const entityType = getEntityType(item);
+    const id = getItemId(item);
+    return !!(entityType && id);
   };
 
   return (
@@ -169,65 +176,96 @@ export const PendingItems: React.FC<PendingItemsProps> = ({
           <p className="text-sm text-muted-foreground">{t('pending.empty')}</p>
         </div>
       ) : (
-        <div className="space-y-1 max-h-[350px] overflow-y-auto overflow-x-hidden">
-          {items.map((item, index) => {
-            if (!item) return null;
-            
-            const entityType = getEntityType(item);
-            const Icon = getTypeIcon(entityType);
-            const refNumber = getReferenceNumber(item);
-            const status = item?.status || item?.itemType;
-            const messageKey = getPendingMessageKey(entityType, status);
-            const statusBadgeKey = getStatusBadgeKey(status);
-            const formattedDate = item?.createdAt && isValidDate(item.createdAt) 
-              ? formatDate(item.createdAt) 
-              : '';
-            
-            const itemId = getItemId(item);
-            const isClickable = entityType && itemId;
+        <TooltipProvider>
+          <div className="space-y-1 max-h-[350px] overflow-y-auto overflow-x-hidden">
+            {items.map((item, index) => {
+              if (!item) return null;
+              
+              const entityType = getEntityType(item);
+              const Icon = getTypeIcon(entityType);
+              const refNumber = getReferenceNumber(item);
+              const status = item?.status || item?.itemType;
+              const messageKey = getPendingMessageKey(entityType, status);
+              const statusBadgeKey = getStatusBadgeKey(status);
+              const formattedDate = item?.createdAt && isValidDate(item.createdAt) 
+                ? formatDate(item.createdAt) 
+                : '';
+              
+              const itemId = getItemId(item);
+              const clickable = isItemClickable(item);
 
-            // Format reference for display (with # prefix if exists)
-            const displayRef = refNumber ? `#${refNumber}` : '';
+              // Format reference for display (with # prefix if exists)
+              const displayRef = refNumber ? `#${refNumber}` : '';
 
-            return (
-              <div
-                key={itemId || `pending-${index}`}
-                onClick={() => isClickable && handleItemClick(item)}
-                className={cn(
-                  'flex items-center justify-between py-3 px-3 -mx-3 rounded-md transition-colors',
-                  isClickable && 'cursor-pointer hover:bg-muted/50 group'
-                )}
-              >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="rounded-lg bg-warning/10 p-2 flex-shrink-0">
-                    <Icon className="h-4 w-4 text-warning" />
+              const itemContent = (
+                <div
+                  onClick={() => clickable && handleItemClick(item)}
+                  className={cn(
+                    'flex items-center justify-between py-3 px-3 -mx-3 rounded-md transition-colors',
+                    clickable ? 'cursor-pointer hover:bg-muted/50 group' : 'opacity-70'
+                  )}
+                  role={clickable ? 'button' : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  onKeyDown={(e) => {
+                    if (clickable && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      handleItemClick(item);
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="rounded-lg bg-warning/10 p-2 flex-shrink-0">
+                      <Icon className="h-4 w-4 text-warning" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {entityType ? t(messageKey, { reference: displayRef }) : t('pending.messages.unknown')}
+                      </p>
+                      <Badge 
+                        variant="outline" 
+                        className="text-xs mt-1 text-warning border-warning/30 max-w-full truncate"
+                      >
+                        {t(statusBadgeKey)}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {t(messageKey, { reference: displayRef })}
-                    </p>
-                    <Badge 
-                      variant="outline" 
-                      className="text-xs mt-1 text-warning border-warning/30 max-w-full truncate"
-                    >
-                      {t(statusBadgeKey)}
-                    </Badge>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    {formattedDate && (
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {formattedDate}
+                      </span>
+                    )}
+                    {clickable ? (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-muted-foreground/50" />
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                  {formattedDate && (
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {formattedDate}
-                    </span>
-                  )}
-                  {isClickable && (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+
+              // Wrap non-clickable items with tooltip
+              if (!clickable) {
+                return (
+                  <Tooltip key={itemId || `pending-${index}`}>
+                    <TooltipTrigger asChild>
+                      {itemContent}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{t('pending.detailsUnavailable')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return (
+                <React.Fragment key={itemId || `pending-${index}`}>
+                  {itemContent}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </TooltipProvider>
       )}
     </div>
   );

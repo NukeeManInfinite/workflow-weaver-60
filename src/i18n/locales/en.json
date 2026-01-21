@@ -32,6 +32,7 @@
     "title": "Recent Activity",
     "subtitle": "Your latest actions and updates",
     "empty": "No recent activity",
+    "detailsUnavailable": "Details unavailable",
     "order": "Order",
     "contract": "Contract",
     "messages": {
@@ -47,13 +48,15 @@
       "updated": "Item was updated",
       "completed": "Item was completed",
       "statusChanged": "Status was updated",
+      "unknown": "Unknown activity",
       "default": "Activity update"
     }
   },
   "pending": {
     "title": "Pending Items",
     "subtitle": "Items requiring your attention",
-    "empty": "No pending items",
+    "empty": "Nothing requires your attention",
+    "detailsUnavailable": "Details unavailable",
     "order": "Order",
     "contract": "Contract",
     "messages": {
@@ -69,11 +72,12 @@
       "pendingApproval": "Item is waiting for approval",
       "requiresFollowUp": "Item requires follow-up",
       "pendingReview": "Item is pending review",
+      "unknown": "Unknown item",
       "default": "Action required"
     },
     "statusBadge": {
       "needsAttention": "Needs attention",
-      "pendingApproval": "Pending approval",
+      "pendingApproval": "Awaiting approval",
       "requiresFollowUp": "Follow-up required",
       "pendingReview": "Pending review",
       "default": "Pending"
