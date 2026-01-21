@@ -13,6 +13,8 @@ import {
   ContractsTable,
   DeleteConfirmModal,
   CreateContractWizard,
+  ContractViewModal,
+  ContractEditModal,
 } from '@/components/contracts';
 import {
   Contract,
@@ -56,6 +58,8 @@ export default function ContractsPage() {
 
   // Modals
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [viewContract, setViewContract] = useState<Contract | null>(null);
+  const [editContract, setEditContract] = useState<Contract | null>(null);
   const [deleteContract, setDeleteContract] = useState<Contract | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -172,17 +176,16 @@ export default function ContractsPage() {
   };
 
   const handleView = (contract: Contract) => {
-    toast({
-      title: 'Ko\'rish',
-      description: `Shartnoma: ${contract.contractNumber}`,
-    });
+    setViewContract(contract);
   };
 
   const handleEdit = (contract: Contract) => {
-    toast({
-      title: 'Tahrirlash',
-      description: `Shartnoma: ${contract.contractNumber}`,
-    });
+    setEditContract(contract);
+  };
+
+  const handleEditSuccess = () => {
+    loadContracts();
+    loadStats();
   };
 
   const handleWizardSuccess = () => {
@@ -351,6 +354,21 @@ export default function ContractsPage() {
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
         onSuccess={handleWizardSuccess}
+      />
+
+      {/* View Modal */}
+      <ContractViewModal
+        contract={viewContract}
+        open={!!viewContract}
+        onClose={() => setViewContract(null)}
+      />
+
+      {/* Edit Modal */}
+      <ContractEditModal
+        contract={editContract}
+        open={!!editContract}
+        onClose={() => setEditContract(null)}
+        onSuccess={handleEditSuccess}
       />
 
       {/* Delete Modal */}
