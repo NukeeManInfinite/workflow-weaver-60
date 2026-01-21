@@ -38,8 +38,13 @@ const App = () => (
               <Route path="/seller/contracts" element={<ProtectedRoute allowedRoles={['Seller', 'Director']}><ContractsPage /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute allowedRoles={['Seller', 'Director', 'Constructor', 'ProductionManager']}><OrdersPage /></ProtectedRoute>} />
               <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['Seller', 'Director', 'Constructor', 'ProductionManager']}><OrdersPage /></ProtectedRoute>} />
-              <Route path="/dimensions" element={<ProtectedRoute allowedRoles={['Constructor']}><DimensionsPage /></ProtectedRoute>} />
-              <Route path="/material-requests" element={<ProtectedRoute allowedRoles={['Constructor']}><MaterialRequestsPage /></ProtectedRoute>} />
+              <Route path="/constructor" element={<ProtectedRoute allowedRoles={['Constructor']}><ConstructorDashboard /></ProtectedRoute>} />
+              <Route path="/constructor/orders" element={<ProtectedRoute allowedRoles={['Constructor']}><ConstructorOrdersPage /></ProtectedRoute>} />
+              <Route path="/constructor/orders/:id" element={<ProtectedRoute allowedRoles={['Constructor']}><ConstructorOrdersPage /></ProtectedRoute>} />
+              <Route path="/constructor/furniture-types" element={<ProtectedRoute allowedRoles={['Constructor']}><FurnitureTypesPage /></ProtectedRoute>} />
+              <Route path="/constructor/furniture-types/:id" element={<ProtectedRoute allowedRoles={['Constructor']}><TechnicalSpecsPage /></ProtectedRoute>} />
+              <Route path="/constructor/details" element={<ProtectedRoute allowedRoles={['Constructor']}><DetailsPage /></ProtectedRoute>} />
+              <Route path="/constructor/drawings" element={<ProtectedRoute allowedRoles={['Constructor']}><DrawingsPage /></ProtectedRoute>} />
               <Route path="/employees" element={<ProtectedRoute allowedRoles={['ProductionManager', 'Director']}><EmployeesPage /></ProtectedRoute>} />
               <Route path="/assignments" element={<ProtectedRoute allowedRoles={['ProductionManager']}><AssignmentsPage /></ProtectedRoute>} />
               <Route path="/tasks" element={<ProtectedRoute allowedRoles={['TeamLeader']}><TasksPage /></ProtectedRoute>} />
