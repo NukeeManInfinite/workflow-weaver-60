@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { ActivityItem } from '@/types/seller';
 import { cn } from '@/lib/utils';
 import { formatDate, isValidDate } from '@/lib/dateUtils';
-import { FileText, ShoppingCart, Clock, ChevronRight } from 'lucide-react';
+import { FileText, ShoppingCart, Clock, ChevronRight, AlertCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface RecentActivityProps {
   activities: ActivityItem[];
@@ -117,10 +118,16 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({
     if (!entityType || !id) return;
     
     if (entityType === 'Order') {
-      navigate('/seller/orders');
+      navigate(`/seller/orders?highlight=${id}`);
     } else if (entityType === 'Contract') {
-      navigate('/seller/contracts');
+      navigate(`/seller/contracts?highlight=${id}`);
     }
+  };
+
+  const isItemClickable = (activity: ActivityItem): boolean => {
+    const entityType = getEntityType(activity);
+    const id = activity?.entityId || activity?.id;
+    return !!(entityType && id);
   };
 
   return (
@@ -136,67 +143,98 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({
           <p className="text-sm text-muted-foreground">{t('activity.empty')}</p>
         </div>
       ) : (
-        <div className="space-y-1 max-h-[350px] overflow-y-auto overflow-x-hidden">
-          {activities.map((activity, index) => {
-            if (!activity) return null;
-            
-            const entityType = getEntityType(activity);
-            const Icon = getActivityIcon(entityType);
-            const messageKey = getActivityMessageKey(activity);
-            const refNumber = getReferenceNumber(activity);
-            const formattedDate = activity?.createdAt && isValidDate(activity.createdAt) 
-              ? formatDate(activity.createdAt) 
-              : '';
-            
-            const id = activity?.entityId || activity?.id;
-            const isClickable = entityType && id;
+        <TooltipProvider>
+          <div className="space-y-1 max-h-[350px] overflow-y-auto overflow-x-hidden">
+            {activities.map((activity, index) => {
+              if (!activity) return null;
+              
+              const entityType = getEntityType(activity);
+              const Icon = getActivityIcon(entityType);
+              const messageKey = getActivityMessageKey(activity);
+              const refNumber = getReferenceNumber(activity);
+              const formattedDate = activity?.createdAt && isValidDate(activity.createdAt) 
+                ? formatDate(activity.createdAt) 
+                : '';
+              
+              const id = activity?.entityId || activity?.id;
+              const clickable = isItemClickable(activity);
 
-            return (
-              <div
-                key={id || `activity-${index}`}
-                onClick={() => isClickable && handleActivityClick(activity)}
-                className={cn(
-                  'flex items-center justify-between py-3 px-3 -mx-3 rounded-md transition-colors',
-                  isClickable && 'cursor-pointer hover:bg-muted/50 group'
-                )}
-              >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className={cn(
-                    'rounded-lg p-2 flex-shrink-0',
-                    entityType === 'Order' ? 'bg-info/10' : 
-                    entityType === 'Contract' ? 'bg-success/10' : 'bg-muted'
-                  )}>
-                    <Icon className={cn(
-                      'h-4 w-4',
-                      entityType === 'Order' ? 'text-info' : 
-                      entityType === 'Contract' ? 'text-success' : 'text-muted-foreground'
-                    )} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {t(messageKey)}
-                    </p>
-                    {refNumber && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {entityType ? t(`activity.${entityType.toLowerCase()}`) : ''} #{refNumber}
+              const itemContent = (
+                <div
+                  onClick={() => clickable && handleActivityClick(activity)}
+                  className={cn(
+                    'flex items-center justify-between py-3 px-3 -mx-3 rounded-md transition-colors',
+                    clickable ? 'cursor-pointer hover:bg-muted/50 group' : 'opacity-70'
+                  )}
+                  role={clickable ? 'button' : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  onKeyDown={(e) => {
+                    if (clickable && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      handleActivityClick(activity);
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={cn(
+                      'rounded-lg p-2 flex-shrink-0',
+                      entityType === 'Order' ? 'bg-info/10' : 
+                      entityType === 'Contract' ? 'bg-success/10' : 'bg-muted'
+                    )}>
+                      <Icon className={cn(
+                        'h-4 w-4',
+                        entityType === 'Order' ? 'text-info' : 
+                        entityType === 'Contract' ? 'text-success' : 'text-muted-foreground'
+                      )} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {entityType ? t(messageKey) : t('activity.messages.unknown')}
                       </p>
+                      {refNumber && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {entityType ? t(`activity.${entityType.toLowerCase()}`) : t('common.systemActivity')} #{refNumber}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    {formattedDate && (
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {formattedDate}
+                      </span>
+                    )}
+                    {clickable ? (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-muted-foreground/50" />
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                  {formattedDate && (
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {formattedDate}
-                    </span>
-                  )}
-                  {isClickable && (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+
+              // Wrap non-clickable items with tooltip
+              if (!clickable) {
+                return (
+                  <Tooltip key={id || `activity-${index}`}>
+                    <TooltipTrigger asChild>
+                      {itemContent}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{t('activity.detailsUnavailable')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return (
+                <React.Fragment key={id || `activity-${index}`}>
+                  {itemContent}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </TooltipProvider>
       )}
     </div>
   );
