@@ -8,8 +8,21 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle, User } from 'lucide-react';
-import { employeeService } from '@/services/employeeService';
-import { Employee } from '@/types';
+import apiClient from '@/lib/api';
+
+// API response type for constructors and production managers
+interface UserOption {
+  id: number;
+  fullName: string;
+  phone: string;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  errors: string[] | null;
+}
 
 interface UserSelectorProps {
   value: string;
@@ -28,40 +41,45 @@ export const UserSelector: React.FC<UserSelectorProps> = ({
   placeholder = 'Select a user',
   filterRole = 'all',
 }) => {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchEmployees = async () => {
+    const fetchUsers = async () => {
       setLoading(true);
       try {
-        const data = await employeeService.getAll();
-        // Filter by role if needed
-        let filtered = data;
+        let endpoint = '/users';
+        
+        // Use specific endpoints for constructors and production managers
         if (filterRole === 'constructor') {
-          filtered = data.filter(
-            (e) => e.role?.toLowerCase().includes('constructor') || e.role?.toLowerCase().includes('engineer')
-          );
+          endpoint = '/users/constructors';
         } else if (filterRole === 'productionManager') {
-          filtered = data.filter(
-            (e) => e.role?.toLowerCase().includes('manager') || e.role?.toLowerCase().includes('production')
-          );
+          endpoint = '/users/production-managers';
         }
-        setEmployees(filtered.length > 0 ? filtered : data);
+        
+        const response = await apiClient.get<ApiResponse<UserOption[]>>(endpoint);
+        
+        // Extract data from the API response envelope
+        if (response.data.success && response.data.data) {
+          setUsers(response.data.data);
+        } else {
+          console.error('Failed to load users:', response.data.message);
+          setUsers([]);
+        }
       } catch (error) {
-        console.error('Failed to load employees:', error);
-        setEmployees([]);
+        console.error('Failed to load users:', error);
+        setUsers([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEmployees();
+    fetchUsers();
   }, [filterRole]);
 
   const handleSelect = (userId: string) => {
-    const employee = employees.find((e) => e.id === userId);
-    onChange(userId, employee ? `${employee.firstName} ${employee.lastName}` : undefined);
+    const user = users.find((u) => u.id.toString() === userId);
+    onChange(userId, user?.fullName);
   };
 
   if (loading) {
@@ -79,21 +97,19 @@ export const UserSelector: React.FC<UserSelectorProps> = ({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {employees.length === 0 ? (
+          {users.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground text-sm">
               No users available
             </div>
           ) : (
-            employees.map((employee) => (
-              <SelectItem key={employee.id} value={employee.id}>
+            users.map((user) => (
+              <SelectItem key={user.id} value={user.id.toString()}>
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">
-                    {employee.firstName} {employee.lastName}
-                  </span>
-                  {employee.role && (
+                  <span className="font-medium">{user.fullName}</span>
+                  {user.phone && (
                     <span className="text-muted-foreground text-xs">
-                      ({employee.role})
+                      ({user.phone})
                     </span>
                   )}
                 </div>
