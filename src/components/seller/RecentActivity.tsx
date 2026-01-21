@@ -131,12 +131,7 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({
   };
 
   return (
-    <div className={cn('bg-card rounded-lg border border-border p-6', className)}>
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-foreground">{t('activity.title')}</h3>
-        <p className="text-sm text-muted-foreground">{t('activity.subtitle')}</p>
-      </div>
-
+    <div className={cn('', className)}>
       {!hasActivities ? (
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <Clock className="h-10 w-10 text-muted-foreground/40 mb-3" />

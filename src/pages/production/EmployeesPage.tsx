@@ -39,7 +39,7 @@ const getRoleBadge = (role: string) => {
 
 export const EmployeesPage: React.FC = () => {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <AppHeader 
         title="Employees"
         description="Manage team members and roles"
@@ -47,29 +47,57 @@ export const EmployeesPage: React.FC = () => {
 
       <div className="p-6 space-y-6 animate-fade-in">
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">45</div>
-              <div className="text-sm text-muted-foreground">Total Employees</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <Card className="border border-border/50">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Total Employees</p>
+                  <p className="text-3xl font-bold">45</p>
+                </div>
+                <div className="p-3 rounded-xl bg-info/10">
+                  <UserPlus className="h-6 w-6 text-info" />
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-success">42</div>
-              <div className="text-sm text-muted-foreground">Active</div>
+          <Card className="border border-border/50">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Active</p>
+                  <p className="text-3xl font-bold text-success">42</p>
+                </div>
+                <div className="p-3 rounded-xl bg-success/10">
+                  <Edit className="h-6 w-6 text-success" />
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-info">5</div>
-              <div className="text-sm text-muted-foreground">Team Leaders</div>
+          <Card className="border border-border/50">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Team Leaders</p>
+                  <p className="text-3xl font-bold text-info">5</p>
+                </div>
+                <div className="p-3 rounded-xl bg-info/10">
+                  <MoreHorizontal className="h-6 w-6 text-info" />
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-warning">6</div>
-              <div className="text-sm text-muted-foreground">Departments</div>
+          <Card className="border border-border/50">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Departments</p>
+                  <p className="text-3xl font-bold text-warning">6</p>
+                </div>
+                <div className="p-3 rounded-xl bg-warning/10">
+                  <Filter className="h-6 w-6 text-warning" />
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -92,9 +120,9 @@ export const EmployeesPage: React.FC = () => {
         </div>
 
         {/* Employees Table */}
-        <Card>
+        <Card className="border border-border/50">
           <CardHeader>
-            <CardTitle>All Employees</CardTitle>
+            <CardTitle className="text-lg font-semibold">All Employees</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>

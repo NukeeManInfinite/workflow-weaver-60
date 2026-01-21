@@ -64,25 +64,26 @@ export const StatCard: React.FC<StatCardProps> = ({ data, className }) => {
       role={data.navigateTo ? 'button' : undefined}
       aria-label={data.navigateTo ? t(data.titleKey) : undefined}
       className={cn(
-        'bg-card rounded-lg border border-border p-5 transition-all duration-200',
-        data.navigateTo && 'cursor-pointer hover:shadow-md hover:border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/50',
+        'group relative overflow-hidden bg-card rounded-xl border border-border/50 p-5 transition-all duration-300',
+        data.navigateTo && 'cursor-pointer hover:shadow-elevated hover:border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/50',
         className
       )}
     >
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">{t(data.titleKey)}</p>
-          <p className="text-3xl font-bold text-foreground">{data.value}</p>
+          <p className="text-sm font-medium text-muted-foreground">{t(data.titleKey)}</p>
+          <p className="text-3xl font-bold tracking-tight text-foreground">{data.value}</p>
           {data.subtext && (
-            <p className={cn('text-sm font-medium', colors.subtext)}>
+            <p className={cn('text-xs font-medium', colors.subtext)}>
               {data.subtext}
             </p>
           )}
         </div>
-        <div className={cn('rounded-lg p-2.5', colors.icon)}>
-          <Icon className="h-5 w-5" />
+        <div className={cn('rounded-xl p-3', colors.icon)}>
+          <Icon className="h-6 w-6" />
         </div>
       </div>
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-border to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
     </div>
   );
 };

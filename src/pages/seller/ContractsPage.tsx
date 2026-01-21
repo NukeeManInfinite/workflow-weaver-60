@@ -194,20 +194,22 @@ export default function ContractsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-background">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Shartnomalar</h1>
-          <p className="text-muted-foreground">Mijozlar shartnomalarini boshqarish</p>
+      <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+        <div className="flex h-16 items-center justify-between px-6">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Shartnomalar</h1>
+            <p className="text-sm text-muted-foreground">Mijozlar shartnomalarini boshqarish</p>
+          </div>
+          <Button onClick={() => setWizardOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Yangi shartnoma
+          </Button>
         </div>
-        <Button onClick={() => setWizardOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Yangi shartnoma
-        </Button>
-      </div>
+      </header>
 
-      {/* Stats Cards */}
+      <div className="p-6 space-y-6 animate-fade-in">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -379,6 +381,7 @@ export default function ContractsPage() {
         onConfirm={handleDelete}
         loading={deleteLoading}
       />
+      </div>
     </div>
   );
 }

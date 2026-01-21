@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppLayout } from "@/components/layout";
 import { LoginPage, UnauthorizedPage } from "@/pages/auth";
 import { DashboardPage } from "@/pages/dashboard";
+import { KPIDashboardPage } from "@/pages/kpi";
 import { ContractsPage, OrdersPage } from "@/pages/seller";
 import { DimensionsPage, MaterialRequestsPage } from "@/pages/constructor";
 import { EmployeesPage, AssignmentsPage } from "@/pages/production";
@@ -47,7 +48,7 @@ const App = () => (
               <Route path="/my-kpi" element={<ProtectedRoute allowedRoles={['Employee']}><MyKPIPage /></ProtectedRoute>} />
               <Route path="/inventory" element={<ProtectedRoute allowedRoles={['WarehouseManager']}><InventoryPage /></ProtectedRoute>} />
               <Route path="/stock-management" element={<ProtectedRoute allowedRoles={['WarehouseManager']}><StockManagementPage /></ProtectedRoute>} />
-              <Route path="/kpi-dashboard" element={<ProtectedRoute allowedRoles={['Director', 'ProductionManager']}><DashboardPage /></ProtectedRoute>} />
+              <Route path="/kpi-dashboard" element={<ProtectedRoute allowedRoles={['Director', 'ProductionManager']}><KPIDashboardPage /></ProtectedRoute>} />
               <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
             
