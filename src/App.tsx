@@ -10,7 +10,7 @@ import { LoginPage, UnauthorizedPage } from "@/pages/auth";
 import { DashboardPage } from "@/pages/dashboard";
 import { KPIDashboardPage } from "@/pages/kpi";
 import { ContractsPage, OrdersPage } from "@/pages/seller";
-import { DimensionsPage, MaterialRequestsPage } from "@/pages/constructor";
+import { ConstructorDashboard, ConstructorOrdersPage, FurnitureTypesPage, DetailsPage, DrawingsPage, TechnicalSpecsPage } from '@/pages/constructor';
 import { EmployeesPage, AssignmentsPage } from "@/pages/production";
 import { TasksPage } from "@/pages/teamleader";
 import { MyTasksPage, MyKPIPage } from "@/pages/employee";
