@@ -82,9 +82,25 @@ export const contractService = {
   /**
    * PUT /api/Contracts/{id}/status
    * Update contract status inline
+   * Backend expects numeric status: 0=Draft, 1=Active, 2=Completed, 3=Cancelled
    */
   async updateStatus(id: string, data: ContractStatusUpdateRequest): Promise<Contract> {
-    const response = await apiClient.put<ApiResponse<Contract>>(`${BASE_URL}/${id}/status`, data);
+    // Map string status to numeric value for backend
+    const statusToNumber: Record<string, number> = {
+      'Draft': 0,
+      'Active': 1,
+      'Completed': 2,
+      'Cancelled': 3,
+    };
+    
+    const numericStatus = typeof data.status === 'string' 
+      ? statusToNumber[data.status] ?? 0 
+      : data.status;
+    
+    const response = await apiClient.put<ApiResponse<Contract>>(
+      `${BASE_URL}/${id}/status`, 
+      { status: numericStatus }
+    );
     return response.data.data;
   },
 };
