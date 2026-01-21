@@ -34,7 +34,9 @@ const App = () => (
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/contracts" element={<ProtectedRoute allowedRoles={['Seller', 'Director']}><ContractsPage /></ProtectedRoute>} />
+              <Route path="/seller/contracts" element={<ProtectedRoute allowedRoles={['Seller', 'Director']}><ContractsPage /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute allowedRoles={['Seller', 'Director', 'Constructor', 'ProductionManager']}><OrdersPage /></ProtectedRoute>} />
+              <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['Seller', 'Director', 'Constructor', 'ProductionManager']}><OrdersPage /></ProtectedRoute>} />
               <Route path="/dimensions" element={<ProtectedRoute allowedRoles={['Constructor']}><DimensionsPage /></ProtectedRoute>} />
               <Route path="/material-requests" element={<ProtectedRoute allowedRoles={['Constructor']}><MaterialRequestsPage /></ProtectedRoute>} />
               <Route path="/employees" element={<ProtectedRoute allowedRoles={['ProductionManager', 'Director']}><EmployeesPage /></ProtectedRoute>} />
