@@ -137,11 +137,14 @@ export default function ContractsPage() {
       // Refresh stats in background
       loadStats();
     } catch (error: any) {
-      // Show detailed error from backend
-      const errorMessage =
-        error.response?.data?.message ||
-        error.response?.data?.errors?.join(', ') ||
-        'Statusni yangilashda xatolik yuz berdi';
+      // Show detailed error from backend - handle errors as string or array
+      let errorMessage = 'Statusni yangilashda xatolik yuz berdi';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        errorMessage = Array.isArray(errors) ? errors.join(', ') : String(errors);
+      }
       toast({
         title: 'Status yangilanmadi',
         description: errorMessage,
