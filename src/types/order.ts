@@ -63,8 +63,12 @@ export interface UpdateOrderDto {
   notes?: string;
 }
 
-export interface AssignOrderDto {
-  userId: string;
+export interface AssignConstructorDto {
+  constructorId: number;
+}
+
+export interface AssignProductionManagerDto {
+  productionManagerId: number;
 }
 
 export interface OrdersQueryParams {
