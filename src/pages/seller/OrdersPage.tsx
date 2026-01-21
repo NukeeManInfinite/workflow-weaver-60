@@ -23,6 +23,7 @@ import { Order, OrderStats, OrderStatus, CreateOrderDto, UpdateOrderDto } from '
 import {
   OrdersTable,
   OrderFormModal,
+  OrderViewModal,
   AssignModal,
   DeleteOrderModal,
 } from '@/components/orders';
@@ -47,6 +48,7 @@ export const OrdersPage: React.FC = () => {
 
   // Modal states
   const [formModalOpen, setFormModalOpen] = useState(false);
+  const [viewModalOpen, setViewModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [assignConstructorModalOpen, setAssignConstructorModalOpen] = useState(false);
   const [assignManagerModalOpen, setAssignManagerModalOpen] = useState(false);
@@ -126,10 +128,8 @@ export const OrdersPage: React.FC = () => {
   };
 
   const handleView = (order: Order) => {
-    toast({
-      title: 'Order Details',
-      description: `Viewing order ${order.orderNumber}`,
-    });
+    setSelectedOrder(order);
+    setViewModalOpen(true);
   };
 
   const handleEdit = (order: Order) => {
@@ -403,6 +403,15 @@ export const OrdersPage: React.FC = () => {
       </div>
 
       {/* Modals */}
+      <OrderViewModal
+        open={viewModalOpen}
+        onClose={() => {
+          setViewModalOpen(false);
+          setSelectedOrder(null);
+        }}
+        order={selectedOrder}
+      />
+
       <OrderFormModal
         open={formModalOpen}
         onClose={() => {
