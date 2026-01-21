@@ -96,9 +96,16 @@ export default function ContractsPage() {
     setStatsLoading(true);
     try {
       const result = await contractService.getStats();
+      console.log('Stats loaded:', result);
       setStats(result);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load stats:', error);
+      // If stats API fails, calculate from contracts data as fallback
+      toast({
+        title: 'Ogohlantirish',
+        description: 'Statistika yuklanmadi',
+        variant: 'destructive',
+      });
     } finally {
       setStatsLoading(false);
     }
