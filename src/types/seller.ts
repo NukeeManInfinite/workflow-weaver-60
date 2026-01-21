@@ -17,10 +17,12 @@ export interface ActivityItem {
   entityId?: number;
   type?: 'Order' | 'Contract' | string;
   entityType?: 'Order' | 'Contract' | string;
+  relatedEntityType?: 'Order' | 'Contract' | string; // Backend uses this field!
   referenceNumber?: string;
   reference?: string;
   action?: string;
   message?: string;
+  description?: string; // Backend may use this for activity description
   createdAt?: string;
 }
 
@@ -30,9 +32,11 @@ export interface PendingItem {
   entityId?: number;
   type?: 'Order' | 'Contract' | string;
   entityType?: 'Order' | 'Contract' | string;
+  relatedEntityType?: 'Order' | 'Contract' | string; // Backend uses this field!
   itemType?: 'RequiresFollowUp' | 'PendingApproval' | 'PendingReview' | string;
   referenceNumber?: string;
   reference?: string;
+  description?: string; // Backend may use this for item description
   status?: string;
   createdAt?: string;
 }

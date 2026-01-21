@@ -117,7 +117,8 @@ const getStatusBadgeKey = (status?: string | null): string => {
 };
 
 const getEntityType = (item: PendingItem): 'Order' | 'Contract' | null => {
-  const type = item?.entityType || item?.type;
+  // Backend uses relatedEntityType, but also check entityType and type as fallbacks
+  const type = item?.relatedEntityType || item?.entityType || item?.type;
   if (!type) return null;
   
   const normalizedType = String(type).toLowerCase();
@@ -127,7 +128,7 @@ const getEntityType = (item: PendingItem): 'Order' | 'Contract' | null => {
 };
 
 const getReferenceNumber = (item: PendingItem): string => {
-  return item?.reference || item?.referenceNumber || '';
+  return item?.reference || item?.referenceNumber || item?.description || '';
 };
 
 const getItemId = (item: PendingItem): string | number | null => {
