@@ -3,3 +3,4 @@ export * from './orderService';
 export * from './employeeService';
 export * from './warehouseService';
 export * from './notificationService';
+export * from './productionManagerService';

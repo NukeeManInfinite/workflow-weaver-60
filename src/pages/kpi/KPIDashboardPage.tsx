@@ -19,38 +19,14 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Package, Users, ShoppingCart } from 'lucide-react';
-
-// Sample data - in production, this would come from API
-const revenueData = [
-  { month: 'Jan', revenue: 45000, orders: 32 },
-  { month: 'Feb', revenue: 52000, orders: 41 },
-  { month: 'Mar', revenue: 48000, orders: 38 },
-  { month: 'Apr', revenue: 61000, orders: 55 },
-  { month: 'May', revenue: 55000, orders: 48 },
-  { month: 'Jun', revenue: 67000, orders: 62 },
-  { month: 'Jul', revenue: 72000, orders: 68 },
-  { month: 'Aug', revenue: 69000, orders: 58 },
-  { month: 'Sep', revenue: 81000, orders: 75 },
-  { month: 'Oct', revenue: 78000, orders: 71 },
-  { month: 'Nov', revenue: 85000, orders: 82 },
-  { month: 'Dec', revenue: 92000, orders: 89 },
-];
-
-const productionData = [
-  { category: 'Furniture', completed: 120, inProgress: 45, pending: 23 },
-  { category: 'Doors', completed: 85, inProgress: 32, pending: 18 },
-  { category: 'Windows', completed: 67, inProgress: 28, pending: 15 },
-  { category: 'Kitchen', completed: 43, inProgress: 22, pending: 12 },
-  { category: 'Custom', completed: 28, inProgress: 15, pending: 8 },
-];
-
-const statusDistribution = [
-  { name: 'Completed', value: 45, color: 'hsl(142, 71%, 45%)' },
-  { name: 'In Progress', value: 30, color: 'hsl(199, 89%, 48%)' },
-  { name: 'Pending', value: 15, color: 'hsl(38, 92%, 50%)' },
-  { name: 'Cancelled', value: 10, color: 'hsl(0, 72%, 51%)' },
-];
+import { TrendingUp, TrendingDown, Package, Users, ClipboardList, CheckSquare } from 'lucide-react';
+import { 
+  productionManagerService, 
+  ProductionKPI, 
+  ProductionChartData, 
+  CategoryProductionData, 
+  StatusDistribution 
+} from '@/services/productionManagerService';
 
 interface KPICardProps {
   title: string;
@@ -59,110 +35,168 @@ interface KPICardProps {
   changeType: 'up' | 'down';
   icon: React.ElementType;
   color: string;
+  loading?: boolean;
 }
 
-const KPICard: React.FC<KPICardProps> = ({ title, value, change, changeType, icon: Icon, color }) => (
+const KPICard: React.FC<KPICardProps> = ({ title, value, change, changeType, icon: Icon, color, loading }) => (
   <Card className="border border-border/50">
     <CardContent className="p-5">
-      <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground font-medium">{title}</p>
-          <p className="text-2xl font-bold">{value}</p>
-          <div className={`flex items-center gap-1 text-xs font-medium ${changeType === 'up' ? 'text-success' : 'text-destructive'}`}>
-            {changeType === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {change} vs last month
+      {loading ? (
+        <Skeleton className="h-20 w-full" />
+      ) : (
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground font-medium">{title}</p>
+            <p className="text-2xl font-bold">{value}</p>
+            <div className={`flex items-center gap-1 text-xs font-medium ${changeType === 'up' ? 'text-success' : 'text-destructive'}`}>
+              {changeType === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {change} vs last month
+            </div>
+          </div>
+          <div className={`p-3 rounded-xl ${color}`}>
+            <Icon className="h-6 w-6" />
           </div>
         </div>
-        <div className={`p-3 rounded-xl ${color}`}>
-          <Icon className="h-6 w-6" />
-        </div>
-      </div>
+      )}
     </CardContent>
   </Card>
 );
 
+const defaultStatusColors: Record<string, string> = {
+  'Completed': 'hsl(142, 71%, 45%)',
+  'In Progress': 'hsl(199, 89%, 48%)',
+  'Pending': 'hsl(38, 92%, 50%)',
+  'Cancelled': 'hsl(0, 72%, 51%)',
+};
+
 export const KPIDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(true);
+  const [kpi, setKpi] = useState<ProductionKPI | null>(null);
+  const [chartData, setChartData] = useState<ProductionChartData[]>([]);
+  const [categoryData, setCategoryData] = useState<CategoryProductionData[]>([]);
+  const [statusData, setStatusData] = useState<StatusDistribution[]>([]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [kpiData, productionChart, categoryProduction, statusDistribution] = await Promise.all([
+          productionManagerService.getProductionKPI(),
+          productionManagerService.getProductionChartData(),
+          productionManagerService.getCategoryProductionData(),
+          productionManagerService.getStatusDistribution(),
+        ]);
+
+        setKpi(kpiData);
+        setChartData(productionChart);
+        setCategoryData(categoryProduction);
+        // Ensure colors are set
+        setStatusData(statusDistribution.map(item => ({
+          ...item,
+          color: item.color || defaultStatusColors[item.name] || 'hsl(var(--muted))'
+        })));
+      } catch (error) {
+        console.error('Error fetching KPI data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
+
+  const formatChange = (value: number): string => {
+    const prefix = value >= 0 ? '+' : '';
+    return `${prefix}${value.toFixed(1)}%`;
+  };
+
+  const renderEmptyChart = (message: string) => (
+    <div className="h-80 flex items-center justify-center">
+      <div className="text-center">
+        <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">{message}</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader 
-        title="KPI Dashboard"
-        description="Performance metrics and analytics"
+        title="Production KPI Dashboard"
+        description="Production metrics and analytics"
       />
 
       <div className="p-6 space-y-6 animate-fade-in">
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {isLoading ? (
-            Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)
-          ) : (
-            <>
-              <KPICard 
-                title="Total Revenue" 
-                value="$892,450" 
-                change="+12.5%" 
-                changeType="up"
-                icon={DollarSign}
-                color="bg-success/10 text-success"
-              />
-              <KPICard 
-                title="Total Orders" 
-                value="1,247" 
-                change="+8.2%" 
-                changeType="up"
-                icon={ShoppingCart}
-                color="bg-info/10 text-info"
-              />
-              <KPICard 
-                title="Production Output" 
-                value="892 units" 
-                change="+15.3%" 
-                changeType="up"
-                icon={Package}
-                color="bg-warning/10 text-warning"
-              />
-              <KPICard 
-                title="Employee Productivity" 
-                value="94.2%" 
-                change="-2.1%" 
-                changeType="down"
-                icon={Users}
-                color="bg-primary/10 text-primary"
-              />
-            </>
-          )}
+          <KPICard 
+            title="Total Orders" 
+            value={kpi?.totalOrders.toString() || '0'} 
+            change={formatChange(kpi?.ordersChange || 0)}
+            changeType={(kpi?.ordersChange || 0) >= 0 ? 'up' : 'down'}
+            icon={ClipboardList}
+            color="bg-info/10 text-info"
+            loading={isLoading}
+          />
+          <KPICard 
+            title="Orders in Production" 
+            value={kpi?.ordersInProduction.toString() || '0'} 
+            change={formatChange(kpi?.ordersChange || 0)}
+            changeType={(kpi?.ordersChange || 0) >= 0 ? 'up' : 'down'}
+            icon={Package}
+            color="bg-warning/10 text-warning"
+            loading={isLoading}
+          />
+          <KPICard 
+            title="Production Output" 
+            value={`${kpi?.productionOutput || 0} units`} 
+            change={formatChange(kpi?.outputChange || 0)}
+            changeType={(kpi?.outputChange || 0) >= 0 ? 'up' : 'down'}
+            icon={CheckSquare}
+            color="bg-success/10 text-success"
+            loading={isLoading}
+          />
+          <KPICard 
+            title="Employee Productivity" 
+            value={`${kpi?.employeeProductivity || 0}%`} 
+            change={formatChange(kpi?.productivityChange || 0)}
+            changeType={(kpi?.productivityChange || 0) >= 0 ? 'up' : 'down'}
+            icon={Users}
+            color="bg-primary/10 text-primary"
+            loading={isLoading}
+          />
         </div>
 
         {/* Charts */}
-        <Tabs defaultValue="revenue" className="space-y-4">
+        <Tabs defaultValue="production" className="space-y-4">
           <TabsList className="bg-muted/50">
-            <TabsTrigger value="revenue">Revenue Trends</TabsTrigger>
-            <TabsTrigger value="production">Production</TabsTrigger>
+            <TabsTrigger value="production">Production Trends</TabsTrigger>
+            <TabsTrigger value="categories">By Category</TabsTrigger>
             <TabsTrigger value="distribution">Status Distribution</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="revenue" className="space-y-4">
+          <TabsContent value="production" className="space-y-4">
             <Card className="border border-border/50">
               <CardHeader>
-                <CardTitle>Monthly Revenue & Orders</CardTitle>
+                <CardTitle>Monthly Orders & Completed</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
                   <Skeleton className="h-80" />
+                ) : chartData.length === 0 ? (
+                  renderEmptyChart('No production data available')
                 ) : (
                   <ResponsiveContainer width="100%" height={350}>
-                    <AreaChart data={revenueData}>
+                    <AreaChart data={chartData}>
                       <defs>
-                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="hsl(199, 89%, 48%)" stopOpacity={0.3}/>
                           <stop offset="95%" stopColor="hsl(199, 89%, 48%)" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -175,12 +209,23 @@ export const KPIDashboardPage: React.FC = () => {
                           borderRadius: '8px'
                         }}
                       />
+                      <Legend />
                       <Area 
                         type="monotone" 
-                        dataKey="revenue" 
+                        dataKey="orders" 
+                        name="Orders"
                         stroke="hsl(199, 89%, 48%)" 
                         fillOpacity={1} 
-                        fill="url(#colorRevenue)" 
+                        fill="url(#colorOrders)" 
+                        strokeWidth={2}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="completed" 
+                        name="Completed"
+                        stroke="hsl(142, 71%, 45%)" 
+                        fillOpacity={1} 
+                        fill="url(#colorCompleted)" 
                         strokeWidth={2}
                       />
                     </AreaChart>
@@ -190,7 +235,7 @@ export const KPIDashboardPage: React.FC = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="production" className="space-y-4">
+          <TabsContent value="categories" className="space-y-4">
             <Card className="border border-border/50">
               <CardHeader>
                 <CardTitle>Production by Category</CardTitle>
@@ -198,9 +243,11 @@ export const KPIDashboardPage: React.FC = () => {
               <CardContent>
                 {isLoading ? (
                   <Skeleton className="h-80" />
+                ) : categoryData.length === 0 ? (
+                  renderEmptyChart('No category data available')
                 ) : (
                   <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={productionData}>
+                    <BarChart data={categoryData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="category" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                       <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
@@ -230,12 +277,14 @@ export const KPIDashboardPage: React.FC = () => {
               <CardContent>
                 {isLoading ? (
                   <Skeleton className="h-80" />
+                ) : statusData.length === 0 ? (
+                  renderEmptyChart('No status data available')
                 ) : (
                   <div className="flex items-center justify-center">
                     <ResponsiveContainer width="100%" height={350}>
                       <PieChart>
                         <Pie
-                          data={statusDistribution}
+                          data={statusData}
                           cx="50%"
                           cy="50%"
                           innerRadius={80}
@@ -244,7 +293,7 @@ export const KPIDashboardPage: React.FC = () => {
                           dataKey="value"
                           label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                         >
-                          {statusDistribution.map((entry, index) => (
+                          {statusData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
