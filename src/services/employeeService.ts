@@ -23,6 +23,24 @@ export const departmentService = {
   },
 };
 
+export interface CreateEmployeeDto {
+  fullName: string;
+  phone: string;
+  email: string;
+  password: string;
+  positionId: number;
+  departmentId: number;
+  isActive: boolean;
+}
+
+export interface UpdateEmployeeDto {
+  fullName: string;
+  phone: string;
+  positionId: number;
+  departmentId: number;
+  isActive: boolean;
+}
+
 export const employeeService = {
   async getAll(): Promise<Employee[]> {
     const response = await apiClient.get<{ success: boolean; data: Employee[] }>('/Employees');
@@ -34,28 +52,33 @@ export const employeeService = {
     return response.data;
   },
 
-  async getById(id: string): Promise<Employee> {
-    const response = await apiClient.get<Employee>(`/employees/${id}`);
-    return response.data;
+  async getById(id: number): Promise<Employee> {
+    const response = await apiClient.get<{ success: boolean; data: Employee }>(`/Employees/${id}`);
+    return response.data.data || response.data as unknown as Employee;
   },
 
-  async create(employee: Partial<Employee>): Promise<Employee> {
-    const response = await apiClient.post<Employee>('/employees', employee);
-    return response.data;
+  async create(employee: CreateEmployeeDto): Promise<Employee> {
+    const response = await apiClient.post<{ success: boolean; data: Employee }>('/Employees', employee);
+    return response.data.data || response.data as unknown as Employee;
   },
 
-  async update(id: string, employee: Partial<Employee>): Promise<Employee> {
-    const response = await apiClient.put<Employee>(`/employees/${id}`, employee);
-    return response.data;
+  async update(id: number, employee: UpdateEmployeeDto): Promise<Employee> {
+    const response = await apiClient.put<{ success: boolean; data: Employee }>(`/Employees/${id}`, employee);
+    return response.data.data || response.data as unknown as Employee;
   },
 
-  async delete(id: string): Promise<void> {
-    await apiClient.delete(`/employees/${id}`);
+  async delete(id: number): Promise<void> {
+    await apiClient.delete(`/Employees/${id}`);
+  },
+
+  async toggleStatus(id: number, isActive: boolean): Promise<Employee> {
+    const response = await apiClient.patch<{ success: boolean; data: Employee }>(`/Employees/${id}/status`, { isActive });
+    return response.data.data || response.data as unknown as Employee;
   },
 
   async getTeamLeaders(): Promise<Employee[]> {
-    const response = await apiClient.get<Employee[]>('/employees/team-leaders');
-    return response.data;
+    const response = await apiClient.get<{ success: boolean; data: Employee[] }>('/Employees/team-leaders');
+    return response.data.data || response.data as unknown as Employee[];
   },
 
   async getByTeamLeader(teamLeaderId: string): Promise<Employee[]> {
