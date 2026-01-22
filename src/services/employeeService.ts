@@ -25,8 +25,8 @@ export const departmentService = {
 
 export const employeeService = {
   async getAll(): Promise<Employee[]> {
-    const response = await apiClient.get<Employee[]>('/employees');
-    return response.data;
+    const response = await apiClient.get<{ success: boolean; data: Employee[] }>('/Employees');
+    return response.data.data || response.data as unknown as Employee[];
   },
 
   async getByDepartment(departmentId: string): Promise<Employee[]> {
