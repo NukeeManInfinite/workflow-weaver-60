@@ -68,15 +68,20 @@ export interface Department {
 }
 
 export interface Employee {
-  id: string;
-  userId: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: string;
-  departmentId: string;
-  departmentName: string;
+  id: number;
+  userId: number;
+  fullName: string;
+  phone: string;
+  positionId: number;
+  positionName?: string;
+  departmentId: number;
+  departmentName?: string;
   isActive: boolean;
+  activeTasks: number;
+  completedTasks: number;
+  onTimePercent: number | null;
+  createdAt: string;
+  updatedAt: string | null;
 }
 
 // Task types
