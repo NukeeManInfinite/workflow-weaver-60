@@ -11,16 +11,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Search, Filter, Edit, MoreHorizontal, UserPlus, Loader2 } from 'lucide-react';
+import { Search, Filter, Edit, MoreHorizontal, UserPlus, Loader2, Trash2, UserCheck, UserX } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { employeeService } from '@/services/employeeService';
 import { Employee } from '@/types';
+import { EmployeeFormModal, EmployeeFormData, DeleteEmployeeModal } from '@/components/employees';
+import { toast } from '@/hooks/use-toast';
 
 const getRoleBadge = (positionId: number) => {
   // PositionId 1 = TeamLeader, 2 = Employee (based on DB structure)
@@ -34,6 +37,12 @@ export const EmployeesPage: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Modal states
+  const [formModalOpen, setFormModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   useEffect(() => {
     fetchEmployees();
@@ -46,8 +55,95 @@ export const EmployeesPage: React.FC = () => {
       setEmployees(data);
     } catch (error) {
       console.error('Failed to fetch employees:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load employees',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddEmployee = () => {
+    setSelectedEmployee(null);
+    setFormModalOpen(true);
+  };
+
+  const handleEditEmployee = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setFormModalOpen(true);
+  };
+
+  const handleDeleteEmployee = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setDeleteModalOpen(true);
+  };
+
+  const handleToggleStatus = async (employee: Employee) => {
+    try {
+      setActionLoading(employee.id);
+      await employeeService.toggleStatus(employee.id, !employee.isActive);
+      toast({
+        title: 'Status updated',
+        description: `${employee.fullName} is now ${!employee.isActive ? 'active' : 'inactive'}`,
+      });
+      await fetchEmployees();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to update status';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleFormSubmit = async (formData: EmployeeFormData) => {
+    if (selectedEmployee) {
+      // Update existing employee
+      await employeeService.update(selectedEmployee.id, {
+        fullName: formData.fullName,
+        phone: formData.phone,
+        positionId: formData.positionId,
+        departmentId: formData.departmentId,
+        isActive: formData.isActive,
+      });
+    } else {
+      // Create new employee
+      await employeeService.create({
+        fullName: formData.fullName,
+        phone: formData.phone,
+        email: formData.email,
+        password: formData.password!,
+        positionId: formData.positionId,
+        departmentId: formData.departmentId,
+        isActive: formData.isActive,
+      });
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedEmployee) return;
+
+    try {
+      await employeeService.delete(selectedEmployee.id);
+      toast({
+        title: 'Employee deleted',
+        description: `${selectedEmployee.fullName} has been removed`,
+      });
+      setDeleteModalOpen(false);
+      setSelectedEmployee(null);
+      await fetchEmployees();
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to delete employee';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -94,7 +190,7 @@ export const EmployeesPage: React.FC = () => {
                   <p className="text-3xl font-bold text-success">{stats.active}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-success/10">
-                  <Edit className="h-6 w-6 text-success" />
+                  <UserCheck className="h-6 w-6 text-success" />
                 </div>
               </div>
             </CardContent>
@@ -143,7 +239,7 @@ export const EmployeesPage: React.FC = () => {
               <Filter className="h-4 w-4" />
             </Button>
           </div>
-          <Button>
+          <Button onClick={handleAddEmployee}>
             <UserPlus className="mr-2 h-4 w-4" />
             Add Employee
           </Button>
@@ -188,24 +284,53 @@ export const EmployeesPage: React.FC = () => {
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              disabled={actionLoading === employee.id}
+                            >
+                              {actionLoading === employee.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <MoreHorizontal className="h-4 w-4" />
+                              )}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditEmployee(employee)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleStatus(employee)}>
+                              {employee.isActive ? (
+                                <>
+                                  <UserX className="mr-2 h-4 w-4" />
+                                  Deactivate
+                                </>
+                              ) : (
+                                <>
+                                  <UserCheck className="mr-2 h-4 w-4" />
+                                  Activate
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteEmployee(employee)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filteredEmployees.length === 0 && (
+                  {filteredEmployees.length === 0 && !loading && (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
-                        No employees found
+                        {searchTerm ? 'No employees match your search' : 'No employees found'}
                       </TableCell>
                     </TableRow>
                   )}
@@ -215,6 +340,22 @@ export const EmployeesPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modals */}
+      <EmployeeFormModal
+        open={formModalOpen}
+        onOpenChange={setFormModalOpen}
+        employee={selectedEmployee}
+        onSuccess={fetchEmployees}
+        onSubmit={handleFormSubmit}
+      />
+
+      <DeleteEmployeeModal
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        employee={selectedEmployee}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 };
