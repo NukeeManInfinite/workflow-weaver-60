@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { SellerDashboard } from '@/pages/seller/SellerDashboard';
 import { DirectorDashboard } from './DirectorDashboard';
+import { ProductionManagerDashboard } from '@/pages/production';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export const DashboardPage: React.FC = () => {
@@ -37,6 +38,10 @@ export const DashboardPage: React.FC = () => {
   // Render role-specific dashboards
   if (user.role === 'Seller') {
     return <SellerDashboard />;
+  }
+
+  if (user.role === 'ProductionManager') {
+    return <ProductionManagerDashboard />;
   }
 
   // Director and other roles use the new Director dashboard style
