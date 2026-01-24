@@ -18,9 +18,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import { Employee, Department } from '@/types';
-import { departmentService } from '@/services/employeeService';
+import { Employee } from '@/types';
 import { toast } from '@/hooks/use-toast';
+
+interface DepartmentOption {
+  id: number;
+  name: string;
+}
 
 interface EmployeeFormModalProps {
   open: boolean;
@@ -42,6 +46,13 @@ export interface EmployeeFormData {
   forcePasswordChange: boolean;
 }
 
+// Default departments - used when API is not available
+const DEFAULT_DEPARTMENTS: DepartmentOption[] = [
+  { id: 1, name: "Arrachi bo'limi" },
+  { id: 2, name: "Yig'ish bo'limi" },
+  { id: 3, name: "Bo'yoq bo'limi" },
+];
+
 export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
   open,
   onOpenChange,
@@ -51,8 +62,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
 }) => {
   const isEditMode = !!employee;
   const [loading, setLoading] = useState(false);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loadingDepartments, setLoadingDepartments] = useState(false);
+  const [departments, setDepartments] = useState<DepartmentOption[]>(DEFAULT_DEPARTMENTS);
 
   const [formData, setFormData] = useState<EmployeeFormData>({
     fullName: '',
@@ -60,7 +70,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
     username: '',
     password: '',
     role: 'Employee',
-    positionId: 2, // Default: Employee
+    positionId: 2,
     departmentId: 0,
     isActive: true,
     forcePasswordChange: true,
@@ -70,7 +80,6 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
 
   useEffect(() => {
     if (open) {
-      fetchDepartments();
       if (employee) {
         setFormData({
           fullName: employee.fullName || '',
@@ -99,24 +108,6 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       setErrors({});
     }
   }, [open, employee]);
-
-  const fetchDepartments = async () => {
-    try {
-      setLoadingDepartments(true);
-      const data = await departmentService.getAll();
-      setDepartments(data);
-    } catch (error) {
-      console.error('Failed to fetch departments:', error);
-      // Set default departments if API fails
-      setDepartments([
-        { id: '1', name: 'Arrachi bo\'limi' },
-        { id: '2', name: 'Yig\'ish bo\'limi' },
-        { id: '3', name: 'Bo\'yoq bo\'limi' },
-      ]);
-    } finally {
-      setLoadingDepartments(false);
-    }
-  };
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof EmployeeFormData, string>> = {};
@@ -304,10 +295,9 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
             <Select
               value={formData.departmentId ? formData.departmentId.toString() : ''}
               onValueChange={(value) => setFormData({ ...formData, departmentId: parseInt(value) })}
-              disabled={loadingDepartments}
             >
               <SelectTrigger className={errors.departmentId ? 'border-destructive' : ''}>
-                <SelectValue placeholder={loadingDepartments ? 'Loading...' : 'Select department'} />
+                <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
                 {departments.map((dept) => (
