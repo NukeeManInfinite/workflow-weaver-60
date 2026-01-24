@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { ordersApi } from '@/services/orders.api';
 import { Order, OrderStats, OrderStatus, CreateOrderDto, UpdateOrderDto } from '@/types/order';
 import {
@@ -30,6 +31,10 @@ import {
 
 export const OrdersPage: React.FC = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Check if user can create/manage orders (not ProductionManager or Constructor)
+  const canManageOrders = user?.role !== 'ProductionManager' && user?.role !== 'Constructor';
 
   // State for orders list
   const [orders, setOrders] = useState<Order[]>([]);
@@ -372,10 +377,12 @@ export const OrdersPage: React.FC = () => {
               </PopoverContent>
             </Popover>
           </div>
-          <Button onClick={handleNewOrder}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Order
-          </Button>
+          {canManageOrders && (
+            <Button onClick={handleNewOrder}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Order
+            </Button>
+          )}
         </div>
 
         {/* Orders Table */}
@@ -392,6 +399,7 @@ export const OrdersPage: React.FC = () => {
               onDelete={handleDelete}
               onAssignConstructor={handleAssignConstructor}
               onAssignProductionManager={handleAssignProductionManager}
+              canManageOrders={canManageOrders}
             />
 
             {/* Pagination */}

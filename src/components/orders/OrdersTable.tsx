@@ -27,6 +27,7 @@ interface OrdersTableProps {
   onDelete: (order: Order) => void;
   onAssignConstructor: (order: Order) => void;
   onAssignProductionManager: (order: Order) => void;
+  canManageOrders?: boolean;
 }
 
 const getStatusBadge = (status: string) => {
@@ -47,6 +48,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onDelete,
   onAssignConstructor,
   onAssignProductionManager,
+  canManageOrders = true,
 }) => {
   if (loading) {
     return (
@@ -137,27 +139,31 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     <Eye className="mr-2 h-4 w-4" />
                     View Details
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onEdit(order)}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onAssignConstructor(order)}>
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Assign Constructor
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onAssignProductionManager(order)}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Assign Production Manager
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => onDelete(order)}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
+                  {canManageOrders && (
+                    <>
+                      <DropdownMenuItem onClick={() => onEdit(order)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => onAssignConstructor(order)}>
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Assign Constructor
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onAssignProductionManager(order)}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Assign Production Manager
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => onDelete(order)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>
