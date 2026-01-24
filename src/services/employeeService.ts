@@ -23,14 +23,16 @@ export const departmentService = {
   },
 };
 
-export interface CreateEmployeeDto {
+// DTO for creating employee with user account
+export interface CreateEmployeeWithUserDto {
   fullName: string;
   phone: string;
-  email: string;
-  password: string;
   positionId: number;
   departmentId: number;
-  isActive: boolean;
+  username: string;
+  password: string;
+  role: string;
+  forcePasswordChange: boolean;
 }
 
 export interface UpdateEmployeeDto {
@@ -57,8 +59,8 @@ export const employeeService = {
     return response.data.data || response.data as unknown as Employee;
   },
 
-  async create(employee: CreateEmployeeDto): Promise<Employee> {
-    const response = await apiClient.post<{ success: boolean; data: Employee }>('/Employees', employee);
+  async createWithUser(employee: CreateEmployeeWithUserDto): Promise<Employee> {
+    const response = await apiClient.post<{ success: boolean; data: Employee }>('/Employees/with-user', employee);
     return response.data.data || response.data as unknown as Employee;
   },
 

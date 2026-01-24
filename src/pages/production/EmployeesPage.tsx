@@ -112,15 +112,16 @@ export const EmployeesPage: React.FC = () => {
         isActive: formData.isActive,
       });
     } else {
-      // Create new employee
-      await employeeService.create({
+      // Create new employee with user account using /Employees/with-user endpoint
+      await employeeService.createWithUser({
         fullName: formData.fullName,
         phone: formData.phone,
-        email: formData.email,
-        password: formData.password!,
         positionId: formData.positionId,
         departmentId: formData.departmentId,
-        isActive: formData.isActive,
+        username: formData.username,
+        password: formData.password!,
+        role: formData.role,
+        forcePasswordChange: formData.forcePasswordChange,
       });
     }
   };
