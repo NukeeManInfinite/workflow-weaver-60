@@ -24,6 +24,7 @@ import {
 import { Order, ProductCategory } from '@/types';
 import { TeamLeader, categoryAssignmentService } from '@/services/categoryAssignmentService';
 import { categoryService } from '@/services/orderService';
+import { notificationService } from '@/services/notificationService';
 import { toast } from '@/hooks/use-toast';
 
 interface AssignCategoriesModalProps {
@@ -142,6 +143,17 @@ export const AssignCategoriesModal: React.FC<AssignCategoriesModalProps> = ({
       });
 
       await Promise.all(promises);
+
+      // Send notification to the Team Leader
+      try {
+        await notificationService.sendAssignmentNotification(
+          selectedTeamLeaderId,
+          [order?.orderNumber || 'Buyurtma']
+        );
+      } catch (notifyError) {
+        // Log but don't block the success - notification is non-critical
+        console.error('Failed to send notification:', notifyError);
+      }
 
       toast({
         title: 'Muvaffaqiyat',
