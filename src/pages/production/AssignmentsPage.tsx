@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AppHeader } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,19 +14,10 @@ import {
   Trash2,
   Clock,
   AlertCircle,
-  Package,
-  Calendar
+  Package
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -41,61 +32,72 @@ import {
 import { 
   categoryAssignmentService, 
   CategoryAssignment, 
-  TeamLeader, 
-  AssignmentStats,
-  CategoryForAssignment,
-  OrderForAssignment
+  TeamLeader
 } from '@/services/categoryAssignmentService';
-import { notificationService } from '@/services/notificationService';
-import { format } from 'date-fns';
 
 export const AssignmentsPage: React.FC = () => {
   const [assignments, setAssignments] = useState<CategoryAssignment[]>([]);
-  const [categoriesForAssignment, setCategoriesForAssignment] = useState<CategoryForAssignment[]>([]);
-  const [ordersForAssignment, setOrdersForAssignment] = useState<OrderForAssignment[]>([]);
   const [teamLeaders, setTeamLeaders] = useState<TeamLeader[]>([]);
-  const [stats, setStats] = useState<AssignmentStats>({
-    pendingAssignments: 0,
-    inProgressAssignments: 0,
-    completedAssignments: 0,
-    totalAssignments: 0,
-    teamLeadersCount: 0,
-  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Multi-select state for orders
-  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
-  const [selectedTeamLeaderId, setSelectedTeamLeaderId] = useState<number | null>(null);
-  const [assigningOrders, setAssigningOrders] = useState(false);
-  
-  // Single category assignment state (legacy)
-  const [selectedLeaders, setSelectedLeaders] = useState<Record<number, number>>({});
-  const [assigningId, setAssigningId] = useState<number | null>(null);
-  
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [selectedTeamLeaderId, setSelectedTeamLeaderId] = useState<number | null>(null);
+
+  // Derived stats from assignments (single source of truth)
+  const stats = useMemo(() => {
+    if (!assignments || !Array.isArray(assignments)) {
+      return {
+        pendingAssignments: 0,
+        inProgressAssignments: 0,
+        completedAssignments: 0,
+        totalAssignments: 0,
+        teamLeadersCount: 0,
+      };
+    }
+    
+    const pendingCount = assignments.filter(a => a?.status === 'Pending').length;
+    const inProgressCount = assignments.filter(a => a?.status === 'InProgress').length;
+    const completedCount = assignments.filter(a => a?.status === 'Completed').length;
+    
+    // Count unique team leaders from assignments
+    const uniqueLeaderIds = new Set<number>();
+    assignments.forEach(a => {
+      if (a?.teamLeaderId) uniqueLeaderIds.add(a.teamLeaderId);
+    });
+    
+    return {
+      pendingAssignments: pendingCount,
+      inProgressAssignments: inProgressCount,
+      completedAssignments: completedCount,
+      totalAssignments: assignments.length,
+      teamLeadersCount: uniqueLeaderIds.size || teamLeaders.length,
+    };
+  }, [assignments, teamLeaders]);
+
+  // Filter assignments by status
+  const pendingAssignments = useMemo(() => {
+    if (!assignments || !Array.isArray(assignments)) return [];
+    return assignments.filter(a => a?.status === 'Pending');
+  }, [assignments]);
+
+  const activeAssignments = useMemo(() => {
+    if (!assignments || !Array.isArray(assignments)) return [];
+    return assignments.filter(a => a?.status === 'InProgress' || a?.status === 'Pending');
+  }, [assignments]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [assignmentsData, categoriesData, ordersData, teamLeadersData] = await Promise.all([
+      // Only call existing APIs
+      const [assignmentsData, teamLeadersData] = await Promise.all([
         categoryAssignmentService.getAll(),
-        categoryAssignmentService.getCategoriesForAssignment(),
-        categoryAssignmentService.getOrdersForAssignment(),
         categoryAssignmentService.getTeamLeaders(),
       ]);
       
-      setAssignments(assignmentsData);
-      setCategoriesForAssignment(categoriesData.filter(c => !c.isAssigned));
-      
-      // Filter orders that are not already assigned
-      const assignedOrderIds = new Set(assignmentsData.map(a => a.orderId.toString()));
-      const unassignedOrders = ordersData.filter(o => !assignedOrderIds.has(o.id));
-      setOrdersForAssignment(unassignedOrders);
-      
-      setTeamLeaders(teamLeadersData);
-      setStats(categoryAssignmentService.calculateStats(assignmentsData, teamLeadersData));
+      // Ensure data is valid before setting state
+      setAssignments(Array.isArray(assignmentsData) ? assignmentsData : []);
+      setTeamLeaders(Array.isArray(teamLeadersData) ? teamLeadersData : []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -103,6 +105,9 @@ export const AssignmentsPage: React.FC = () => {
         description: 'Ma\'lumotlarni yuklashda xatolik yuz berdi',
         variant: 'destructive',
       });
+      // Set empty arrays on error
+      setAssignments([]);
+      setTeamLeaders([]);
     } finally {
       setLoading(false);
     }
@@ -111,115 +116,6 @@ export const AssignmentsPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
-
-  // Toggle order selection
-  const toggleOrderSelection = (orderId: string) => {
-    setSelectedOrderIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(orderId)) {
-        newSet.delete(orderId);
-      } else {
-        newSet.add(orderId);
-      }
-      return newSet;
-    });
-  };
-
-  // Select all orders
-  const toggleSelectAll = () => {
-    if (selectedOrderIds.size === filteredOrders.length) {
-      setSelectedOrderIds(new Set());
-    } else {
-      setSelectedOrderIds(new Set(filteredOrders.map(o => o.id)));
-    }
-  };
-
-  // Assign selected orders to team leader
-  const handleAssignOrders = async () => {
-    if (!selectedTeamLeaderId || selectedOrderIds.size === 0) {
-      toast({
-        title: 'Xatolik',
-        description: 'Iltimos, buyurtmalar va jamoa rahbarini tanlang',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setAssigningOrders(true);
-    try {
-      const selectedOrders = ordersForAssignment.filter(o => selectedOrderIds.has(o.id));
-      const orderNumbers: string[] = [];
-      
-      // Create assignments for each selected order
-      for (const order of selectedOrders) {
-        await categoryAssignmentService.createOrderAssignment({
-          orderId: parseInt(order.id),
-          teamLeaderId: selectedTeamLeaderId,
-        });
-        orderNumbers.push(order.orderNumber);
-      }
-      
-      // Send notification to team leader
-      await notificationService.sendAssignmentNotification(selectedTeamLeaderId, orderNumbers);
-      
-      toast({
-        title: 'Muvaffaqiyat',
-        description: `${selectedOrderIds.size} ta buyurtma muvaffaqiyatli tayinlandi`,
-      });
-      
-      // Clear selections and refresh
-      setSelectedOrderIds(new Set());
-      setSelectedTeamLeaderId(null);
-      await fetchData();
-    } catch (error: any) {
-      toast({
-        title: 'Xatolik',
-        description: error?.response?.data?.message || 'Buyurtmalarni tayinlashda xatolik',
-        variant: 'destructive',
-      });
-    } finally {
-      setAssigningOrders(false);
-    }
-  };
-
-  const handleAssign = async (categoryId: number) => {
-    const teamLeaderId = selectedLeaders[categoryId];
-    if (!teamLeaderId) {
-      toast({
-        title: 'Xatolik',
-        description: 'Iltimos, jamoa rahbarini tanlang',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setAssigningId(categoryId);
-    try {
-      await categoryAssignmentService.create({
-        categoryId,
-        teamLeaderId,
-      });
-      toast({
-        title: 'Muvaffaqiyat',
-        description: 'Kategoriya muvaffaqiyatli tayinlandi',
-      });
-      // Clear selection and refresh
-      setSelectedLeaders(prev => {
-        const updated = { ...prev };
-        delete updated[categoryId];
-        return updated;
-      });
-      await fetchData();
-    } catch (error: any) {
-      toast({
-        title: 'Xatolik',
-        description: error?.response?.data?.message || 'Kategoriyani tayinlashda xatolik',
-        variant: 'destructive',
-      });
-    } finally {
-      setAssigningId(null);
-    }
-  };
 
   const handleStart = async (assignmentId: number) => {
     setActionLoading(assignmentId);
@@ -293,44 +189,40 @@ export const AssignmentsPage: React.FC = () => {
       case 'Cancelled':
         return <Badge variant="outline" className="bg-destructive/10 text-destructive"><AlertCircle className="h-3 w-3 mr-1" />Bekor qilingan</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline">{status || 'Noma\'lum'}</Badge>;
     }
   };
 
-  const getOrderStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Created':
-        return <Badge variant="outline" className="bg-warning/10 text-warning">Yaratilgan</Badge>;
-      case 'InProgress':
-        return <Badge variant="outline" className="bg-info/10 text-info">Jarayonda</Badge>;
-      case 'Completed':
-        return <Badge variant="outline" className="bg-success/10 text-success">Yakunlangan</Badge>;
-      case 'Cancelled':
-        return <Badge variant="outline" className="bg-destructive/10 text-destructive">Bekor qilingan</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  // Safe search with null guards
+  const filteredPendingAssignments = useMemo(() => {
+    if (!pendingAssignments || pendingAssignments.length === 0) return [];
+    if (!searchTerm) return pendingAssignments;
+    
+    const term = searchTerm.toLowerCase();
+    return pendingAssignments.filter((a) => {
+      if (!a) return false;
+      return (
+        (a.categoryName?.toLowerCase() || '').includes(term) ||
+        (a.orderNumber?.toLowerCase() || '').includes(term) ||
+        (a.customerName?.toLowerCase() || '').includes(term)
+      );
+    });
+  }, [pendingAssignments, searchTerm]);
 
-  const filteredCategories = categoriesForAssignment.filter((category) =>
-    category.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    category.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    category.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredOrders = ordersForAssignment.filter((order) =>
-    order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredAssignments = assignments.filter((assignment) =>
-    assignment.categoryName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    assignment.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    assignment.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Combine categories and orders for display
-  const hasItemsToAssign = filteredCategories.length > 0 || filteredOrders.length > 0;
+  const filteredActiveAssignments = useMemo(() => {
+    if (!activeAssignments || activeAssignments.length === 0) return [];
+    if (!searchTerm) return activeAssignments;
+    
+    const term = searchTerm.toLowerCase();
+    return activeAssignments.filter((a) => {
+      if (!a) return false;
+      return (
+        (a.categoryName?.toLowerCase() || '').includes(term) ||
+        (a.orderNumber?.toLowerCase() || '').includes(term) ||
+        (a.customerName?.toLowerCase() || '').includes(term)
+      );
+    });
+  }, [activeAssignments, searchTerm]);
 
   return (
     <div className="min-h-screen">
@@ -409,7 +301,7 @@ export const AssignmentsPage: React.FC = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Buyurtmalarni qidirish..." 
+              placeholder="Tayinlovlarni qidirish..." 
               className="pl-9" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -419,68 +311,9 @@ export const AssignmentsPage: React.FC = () => {
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Orders & Categories to Assign */}
+          {/* Pending Assignments (Ready for work) */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Tayinlash uchun Buyurtmalar</h2>
-              {filteredOrders.length > 0 && (
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground">
-                    {selectedOrderIds.size} / {filteredOrders.length} tanlangan
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={toggleSelectAll}
-                  >
-                    {selectedOrderIds.size === filteredOrders.length ? 'Bekor qilish' : 'Hammasini tanlash'}
-                  </Button>
-                </div>
-              )}
-            </div>
-            
-            {/* Assignment action bar - show when orders are selected */}
-            {selectedOrderIds.size > 0 && (
-              <Card className="bg-primary/5 border-primary/20">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div className="flex items-center gap-3">
-                      <Badge variant="secondary" className="text-sm">
-                        {selectedOrderIds.size} ta buyurtma tanlandi
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Select
-                        value={selectedTeamLeaderId?.toString() || ''}
-                        onValueChange={(value) => setSelectedTeamLeaderId(parseInt(value))}
-                      >
-                        <SelectTrigger className="w-56 bg-background">
-                          <SelectValue placeholder="Jamoa rahbarini tanlang" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background z-50">
-                          {teamLeaders.map((leader) => (
-                            <SelectItem key={leader.id} value={leader.id.toString()}>
-                              {leader.fullName} ({leader.activeAssignments} aktiv)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button 
-                        onClick={handleAssignOrders}
-                        disabled={assigningOrders || !selectedTeamLeaderId}
-                      >
-                        {assigningOrders ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <UserCheck className="mr-2 h-4 w-4" />
-                        )}
-                        Tayinlash
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            <h2 className="text-lg font-semibold">Tayinlash uchun Kategoriyalar</h2>
             
             {loading ? (
               Array(3).fill(0).map((_, i) => (
@@ -490,133 +323,69 @@ export const AssignmentsPage: React.FC = () => {
                   </CardContent>
                 </Card>
               ))
-            ) : !hasItemsToAssign ? (
+            ) : filteredPendingAssignments.length === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center">
                   <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Buyurtmalar Mavjud Emas</h3>
+                  <h3 className="text-lg font-medium mb-2">Kategoriyalar Mavjud Emas</h3>
                   <p className="text-muted-foreground">
-                    Hozirda tayinlash uchun buyurtmalar yo'q.
+                    Hozirda tayinlash uchun kategoriyalar yo'q.
                   </p>
                 </CardContent>
               </Card>
             ) : (
-              <>
-                {/* Orders list with checkboxes */}
-                {filteredOrders.map((order) => (
-                  <Card 
-                    key={order.id} 
-                    className={`cursor-pointer transition-colors ${
-                      selectedOrderIds.has(order.id) ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-muted/50'
-                    }`}
-                    onClick={() => toggleOrderSelection(order.id)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <Checkbox 
-                          checked={selectedOrderIds.has(order.id)}
-                          onCheckedChange={() => toggleOrderSelection(order.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-1"
-                        />
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-medium">{order.orderNumber}</h3>
-                              {getOrderStatusBadge(order.status)}
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Calendar className="h-4 w-4" />
-                              {format(new Date(order.createdAt), 'dd.MM.yyyy')}
-                            </div>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Mijoz: <span className="text-foreground">{order.customerName}</span>
+              filteredPendingAssignments.map((assignment) => (
+                <Card key={assignment.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium">{assignment.categoryName || assignment.orderNumber || 'Noma\'lum'}</h3>
+                          {getStatusBadge(assignment.status)}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {assignment.orderNumber || '-'} • {assignment.customerName || '-'}
+                        </p>
+                        {assignment.teamLeaderName && (
+                          <p className="text-sm">
+                            <span className="text-muted-foreground">Rahbar: </span>
+                            <span className="font-medium">{assignment.teamLeaderName}</span>
                           </p>
-                          {order.categoryNames && (
-                            <p className="text-sm text-muted-foreground">
-                              Kategoriyalar: <span className="text-foreground">
-                                {Array.isArray(order.categoryNames) 
-                                  ? order.categoryNames.join(', ') 
-                                  : order.categoryNames}
-                              </span>
-                            </p>
-                          )}
-                          {(order.constructorName || order.productionManagerName) && (
-                            <div className="flex gap-4 text-sm">
-                              {order.constructorName && (
-                                <span className="text-muted-foreground">
-                                  Konstruktor: <span className="text-foreground">{order.constructorName}</span>
-                                </span>
-                              )}
-                              {order.productionManagerName && (
-                                <span className="text-muted-foreground">
-                                  PM: <span className="text-foreground">{order.productionManagerName}</span>
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {/* Legacy categories if any */}
-                {filteredCategories.map((category) => (
-                  <Card key={category.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between flex-wrap gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium">{category.name}</h3>
-                            <Badge variant="outline" className="bg-warning/10 text-warning">
-                              Tayinlanmagan
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {category.orderNumber} • {category.customerName}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Select
-                            value={selectedLeaders[category.id]?.toString() || ''}
-                            onValueChange={(value) => 
-                              setSelectedLeaders(prev => ({ ...prev, [category.id]: parseInt(value) }))
-                            }
-                          >
-                            <SelectTrigger className="w-48 bg-background">
-                              <SelectValue placeholder="Rahbar tanlang" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background z-50">
-                              {teamLeaders.map((leader) => (
-                                <SelectItem key={leader.id} value={leader.id.toString()}>
-                                  {leader.fullName} ({leader.activeAssignments} aktiv)
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button 
-                            size="sm"
-                            onClick={() => handleAssign(category.id)}
-                            disabled={assigningId === category.id || !selectedLeaders[category.id]}
-                          >
-                            {assigningId === category.id ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <UserCheck className="mr-2 h-4 w-4" />
-                            )}
-                            Tayinlash
-                          </Button>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStart(assignment.id)}
+                          disabled={actionLoading === assignment.id}
+                        >
+                          {actionLoading === assignment.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Play className="h-4 w-4 mr-1" />
+                              Boshlash
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive border-destructive hover:bg-destructive/10"
+                          onClick={() => setDeleteConfirmId(assignment.id)}
+                          disabled={actionLoading === assignment.id}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
             )}
 
-            {/* Active Assignments */}
+            {/* Active Assignments (In Progress) */}
             <h2 className="text-lg font-semibold mt-8">Faol Tayinlovlar</h2>
             
             {loading ? (
@@ -627,55 +396,39 @@ export const AssignmentsPage: React.FC = () => {
                   </CardContent>
                 </Card>
               ))
-            ) : filteredAssignments.length === 0 ? (
+            ) : filteredActiveAssignments.filter(a => a?.status === 'InProgress').length === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center">
                   <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Tayinlovlar Yo'q</h3>
+                  <h3 className="text-lg font-medium mb-2">Faol Tayinlovlar Yo'q</h3>
                   <p className="text-muted-foreground">
-                    Hozirda faol tayinlovlar mavjud emas.
+                    Hozirda jarayondagi tayinlovlar mavjud emas.
                   </p>
                 </CardContent>
               </Card>
             ) : (
-              filteredAssignments.map((assignment) => (
-                <Card key={assignment.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{assignment.categoryName || assignment.orderNumber}</h3>
-                          {getStatusBadge(assignment.status)}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {assignment.orderNumber} • {assignment.customerName}
-                        </p>
-                        {assignment.teamLeaderName && (
-                          <p className="text-sm">
-                            <span className="text-muted-foreground">Rahbar: </span>
-                            <span className="font-medium">{assignment.teamLeaderName}</span>
+              filteredActiveAssignments
+                .filter(a => a?.status === 'InProgress')
+                .map((assignment) => (
+                  <Card key={assignment.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium">{assignment.categoryName || assignment.orderNumber || 'Noma\'lum'}</h3>
+                            {getStatusBadge(assignment.status)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {assignment.orderNumber || '-'} • {assignment.customerName || '-'}
                           </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {assignment.status === 'Pending' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleStart(assignment.id)}
-                            disabled={actionLoading === assignment.id}
-                          >
-                            {actionLoading === assignment.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <>
-                                <Play className="h-4 w-4 mr-1" />
-                                Boshlash
-                              </>
-                            )}
-                          </Button>
-                        )}
-                        {assignment.status === 'InProgress' && (
+                          {assignment.teamLeaderName && (
+                            <p className="text-sm">
+                              <span className="text-muted-foreground">Rahbar: </span>
+                              <span className="font-medium">{assignment.teamLeaderName}</span>
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
                           <Button
                             size="sm"
                             variant="outline"
@@ -692,8 +445,6 @@ export const AssignmentsPage: React.FC = () => {
                               </>
                             )}
                           </Button>
-                        )}
-                        {(assignment.status === 'Pending' || assignment.status === 'InProgress') && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -703,12 +454,11 @@ export const AssignmentsPage: React.FC = () => {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                ))
             )}
           </div>
 
@@ -723,7 +473,7 @@ export const AssignmentsPage: React.FC = () => {
                       <Skeleton className="h-12 w-full" />
                     </div>
                   ))
-                ) : teamLeaders.length === 0 ? (
+                ) : !teamLeaders || teamLeaders.length === 0 ? (
                   <div className="p-8 text-center">
                     <Users className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                     <p className="text-muted-foreground text-sm">Jamoa rahbarlari topilmadi</p>
@@ -731,12 +481,12 @@ export const AssignmentsPage: React.FC = () => {
                 ) : (
                   teamLeaders.map((leader, index) => (
                     <div 
-                      key={leader.id}
+                      key={leader?.id || index}
                       className={`flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors ${
-                        selectedTeamLeaderId === leader.id ? 'bg-primary/10' : ''
+                        selectedTeamLeaderId === leader?.id ? 'bg-primary/10' : ''
                       } ${index !== teamLeaders.length - 1 ? 'border-b' : ''}`}
                       onClick={() => setSelectedTeamLeaderId(
-                        selectedTeamLeaderId === leader.id ? null : leader.id
+                        selectedTeamLeaderId === leader?.id ? null : leader?.id
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -744,13 +494,13 @@ export const AssignmentsPage: React.FC = () => {
                           <Users className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">{leader.fullName}</p>
-                          <p className="text-sm text-muted-foreground">{leader.department}</p>
+                          <p className="font-medium">{leader?.fullName || 'Noma\'lum'}</p>
+                          <p className="text-sm text-muted-foreground">{leader?.department || '-'}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={leader.activeAssignments > 0 ? 'default' : 'secondary'}>
-                          {leader.activeAssignments} aktiv
+                        <Badge variant={(leader?.activeAssignments || 0) > 0 ? 'default' : 'secondary'}>
+                          {leader?.activeAssignments || 0} aktiv
                         </Badge>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </div>
