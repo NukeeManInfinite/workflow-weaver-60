@@ -1,25 +1,77 @@
 import apiClient from '@/lib/api';
 import { Department, Employee, Task, KPIRecord, EmployeeKPISummary } from '@/types';
 
+// Position types
+export interface Position {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+export interface CreatePositionDto {
+  name: string;
+  description?: string;
+}
+
+// Position service
+export const positionService = {
+  async getAll(): Promise<Position[]> {
+    const response = await apiClient.get<{ success: boolean; data: Position[] } | Position[]>('/Positions');
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    return response.data.data || [];
+  },
+
+  async create(position: CreatePositionDto): Promise<Position> {
+    const response = await apiClient.post<{ success: boolean; data: Position } | Position>('/Positions', position);
+    if ('data' in response.data && 'success' in response.data) {
+      return response.data.data;
+    }
+    return response.data as Position;
+  },
+};
+
+// Department types
+export interface DepartmentDto {
+  id: number;
+  name: string;
+}
+
+export interface CreateDepartmentDto {
+  name: string;
+}
+
+// Department service
 export const departmentService = {
-  async getAll(): Promise<Department[]> {
-    const response = await apiClient.get<Department[]>('/departments');
-    return response.data;
+  async getAll(): Promise<DepartmentDto[]> {
+    const response = await apiClient.get<{ success: boolean; data: DepartmentDto[] } | DepartmentDto[]>('/Departments');
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    return response.data.data || [];
   },
 
   async getById(id: string): Promise<Department> {
-    const response = await apiClient.get<Department>(`/departments/${id}`);
+    const response = await apiClient.get<Department>(`/Departments/${id}`);
     return response.data;
   },
 
-  async create(department: Partial<Department>): Promise<Department> {
-    const response = await apiClient.post<Department>('/departments', department);
-    return response.data;
+  async create(department: CreateDepartmentDto): Promise<DepartmentDto> {
+    const response = await apiClient.post<{ success: boolean; data: DepartmentDto } | DepartmentDto>('/Departments', department);
+    if ('data' in response.data && 'success' in response.data) {
+      return response.data.data;
+    }
+    return response.data as DepartmentDto;
   },
 
   async update(id: string, department: Partial<Department>): Promise<Department> {
-    const response = await apiClient.put<Department>(`/departments/${id}`, department);
+    const response = await apiClient.put<Department>(`/Departments/${id}`, department);
     return response.data;
+  },
+
+  async delete(id: number): Promise<void> {
+    await apiClient.delete(`/Departments/${id}`);
   },
 };
 
