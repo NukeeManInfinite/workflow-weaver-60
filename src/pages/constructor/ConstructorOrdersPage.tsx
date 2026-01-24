@@ -334,14 +334,36 @@ export const ConstructorOrdersPage: React.FC = () => {
               const statusInfo = getStatusInfo(order.status);
               const deadlineInfo = getDeadlineInfo(order.deadline);
               const actionButton = getActionButton(order.status);
-              const furnitureCount = order.furnitureTypes?.length || 0;
+              const furnitureCount = order.furnitureTypes?.length || order.categories?.length || 0;
               const drawingsCount = order.furnitureTypes?.reduce((acc, ft) => acc + (ft.drawingsCount || 0), 0) || 0;
               const completedCount = order.furnitureTypes?.filter(ft => ft.isCompleted).length || 0;
               
-              // Get category name
-              const categoryName = Array.isArray(order.categoryNames) 
-                ? order.categoryNames[0] 
-                : (order.categoryName || order.furnitureTypes?.[0]?.name || 'Kategoriya');
+              // Defensive category name resolution - check multiple possible fields
+              const categoryName = (() => {
+                if (Array.isArray(order.categoryNames) && order.categoryNames.length > 0) {
+                  return order.categoryNames.join(', ');
+                }
+                if (typeof order.categoryNames === 'string' && order.categoryNames) {
+                  return order.categoryNames;
+                }
+                if (order.categoryName) return order.categoryName;
+                if (order.furnitureTypes?.[0]?.name) return order.furnitureTypes[0].name;
+                if (order.categories?.[0]?.name) return order.categories[0].name;
+                return 'Kategoriya belgilanmagan';
+              })();
+              
+              // Defensive customer name resolution
+              const customerDisplayName = order.customerName || order.contractNumber || `Buyurtma #${order.id}`;
+              
+              // Order number display - show formatted or raw
+              const orderDisplayNumber = (() => {
+                if (order.orderNumber) {
+                  // If format is like "ORD-2024-0001", show last segment
+                  const parts = order.orderNumber.split('-');
+                  return parts.length > 1 ? parts[parts.length - 1] : order.orderNumber;
+                }
+                return String(order.id).padStart(4, '0');
+              })();
 
               return (
                 <Card 
@@ -354,10 +376,10 @@ export const ConstructorOrdersPage: React.FC = () => {
                       <div className="flex items-start justify-between">
                         <div>
                           <span className="text-primary font-bold text-lg">
-                            #{order.orderNumber?.split('-').pop() || order.id}
+                            #{orderDisplayNumber}
                           </span>
                           <p className="text-sm text-muted-foreground mt-0.5">
-                            {order.customerName}
+                            {customerDisplayName}
                           </p>
                         </div>
                         <Badge className={`shrink-0 ${statusInfo.bgColor} ${statusInfo.textColor} border-0`}>
