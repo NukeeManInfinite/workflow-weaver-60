@@ -14,7 +14,8 @@ import {
   Trash2,
   Clock,
   AlertCircle,
-  Package
+  Package,
+  ClipboardList
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,20 +30,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   categoryAssignmentService, 
   CategoryAssignment, 
   TeamLeader
 } from '@/services/categoryAssignmentService';
+import { orderService } from '@/services/orderService';
+import { Order } from '@/types';
+import { AssignCategoriesModal } from '@/components/production';
 
 export const AssignmentsPage: React.FC = () => {
   const [assignments, setAssignments] = useState<CategoryAssignment[]>([]);
   const [teamLeaders, setTeamLeaders] = useState<TeamLeader[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingOrders, setLoadingOrders] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [selectedTeamLeaderId, setSelectedTeamLeaderId] = useState<number | null>(null);
+  
+  // Modal state
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Derived stats from assignments (single source of truth)
   const stats = useMemo(() => {
@@ -86,6 +97,16 @@ export const AssignmentsPage: React.FC = () => {
     return assignments.filter(a => a?.status === 'InProgress' || a?.status === 'Pending');
   }, [assignments]);
 
+  // Filter orders that have unassigned categories
+  const ordersWithUnassignedCategories = useMemo(() => {
+    if (!orders || !Array.isArray(orders)) return [];
+    // Orders that have categories and at least one is not assigned
+    return orders.filter(order => {
+      if (!order.categories || order.categories.length === 0) return false;
+      return order.categories.some(cat => !cat.assignedTeamLeaderId);
+    });
+  }, [orders]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -113,8 +134,22 @@ export const AssignmentsPage: React.FC = () => {
     }
   };
 
+  const fetchOrders = async () => {
+    try {
+      setLoadingOrders(true);
+      const ordersData = await orderService.getAll();
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      setOrders([]);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchOrders();
   }, []);
 
   const handleStart = async (assignmentId: number) => {
@@ -178,6 +213,16 @@ export const AssignmentsPage: React.FC = () => {
     }
   };
 
+  const handleOpenAssignModal = (order: Order) => {
+    setSelectedOrder(order);
+    setAssignModalOpen(true);
+  };
+
+  const handleAssignSuccess = () => {
+    fetchData();
+    fetchOrders();
+  };
+
   const getStatusBadge = (status: CategoryAssignment['status']) => {
     switch (status) {
       case 'Pending':
@@ -190,6 +235,21 @@ export const AssignmentsPage: React.FC = () => {
         return <Badge variant="outline" className="bg-destructive/10 text-destructive"><AlertCircle className="h-3 w-3 mr-1" />Bekor qilingan</Badge>;
       default:
         return <Badge variant="outline">{status || 'Noma\'lum'}</Badge>;
+    }
+  };
+
+  const getOrderStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Created':
+        return <Badge variant="outline" className="bg-muted text-muted-foreground">Yangi</Badge>;
+      case 'InProgress':
+        return <Badge variant="outline" className="bg-info/10 text-info">Jarayonda</Badge>;
+      case 'Completed':
+        return <Badge variant="outline" className="bg-success/10 text-success">Yakunlangan</Badge>;
+      case 'Cancelled':
+        return <Badge variant="outline" className="bg-destructive/10 text-destructive">Bekor</Badge>;
+      default:
+        return <Badge variant="outline">{status || '-'}</Badge>;
     }
   };
 
@@ -223,6 +283,20 @@ export const AssignmentsPage: React.FC = () => {
       );
     });
   }, [activeAssignments, searchTerm]);
+
+  const filteredOrders = useMemo(() => {
+    if (!ordersWithUnassignedCategories || ordersWithUnassignedCategories.length === 0) return [];
+    if (!searchTerm) return ordersWithUnassignedCategories;
+    
+    const term = searchTerm.toLowerCase();
+    return ordersWithUnassignedCategories.filter((order) => {
+      if (!order) return false;
+      return (
+        (order.orderNumber?.toLowerCase() || '').includes(term) ||
+        (order.customerName?.toLowerCase() || '').includes(term)
+      );
+    });
+  }, [ordersWithUnassignedCategories, searchTerm]);
 
   return (
     <div className="min-h-screen">
@@ -301,7 +375,7 @@ export const AssignmentsPage: React.FC = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Tayinlovlarni qidirish..." 
+              placeholder="Qidirish..." 
               className="pl-9" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -309,157 +383,242 @@ export const AssignmentsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Content */}
+        {/* Main Content with Tabs */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Pending Assignments (Ready for work) */}
           <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-lg font-semibold">Tayinlash uchun Kategoriyalar</h2>
-            
-            {loading ? (
-              Array(3).fill(0).map((_, i) => (
-                <Card key={i}>
-                  <CardContent className="p-4">
-                    <Skeleton className="h-16 w-full" />
-                  </CardContent>
-                </Card>
-              ))
-            ) : filteredPendingAssignments.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Kategoriyalar Mavjud Emas</h3>
-                  <p className="text-muted-foreground">
-                    Hozirda tayinlash uchun kategoriyalar yo'q.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredPendingAssignments.map((assignment) => (
-                <Card key={assignment.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{assignment.categoryName || assignment.orderNumber || 'Noma\'lum'}</h3>
-                          {getStatusBadge(assignment.status)}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {assignment.orderNumber || '-'} • {assignment.customerName || '-'}
-                        </p>
-                        {assignment.teamLeaderName && (
-                          <p className="text-sm">
-                            <span className="text-muted-foreground">Rahbar: </span>
-                            <span className="font-medium">{assignment.teamLeaderName}</span>
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleStart(assignment.id)}
-                          disabled={actionLoading === assignment.id}
-                        >
-                          {actionLoading === assignment.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Play className="h-4 w-4 mr-1" />
-                              Boshlash
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive border-destructive hover:bg-destructive/10"
-                          onClick={() => setDeleteConfirmId(assignment.id)}
-                          disabled={actionLoading === assignment.id}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
+            <Tabs defaultValue="orders" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="orders" className="flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  Buyurtmalar
+                  {filteredOrders.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 text-xs">{filteredOrders.length}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="pending" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Kutilayotgan
+                  {filteredPendingAssignments.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 text-xs">{filteredPendingAssignments.length}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="active" className="flex items-center gap-2">
+                  <Play className="h-4 w-4" />
+                  Faol
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Active Assignments (In Progress) */}
-            <h2 className="text-lg font-semibold mt-8">Faol Tayinlovlar</h2>
-            
-            {loading ? (
-              Array(2).fill(0).map((_, i) => (
-                <Card key={i}>
-                  <CardContent className="p-4">
-                    <Skeleton className="h-16 w-full" />
-                  </CardContent>
-                </Card>
-              ))
-            ) : filteredActiveAssignments.filter(a => a?.status === 'InProgress').length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Faol Tayinlovlar Yo'q</h3>
-                  <p className="text-muted-foreground">
-                    Hozirda jarayondagi tayinlovlar mavjud emas.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredActiveAssignments
-                .filter(a => a?.status === 'InProgress')
-                .map((assignment) => (
-                  <Card key={assignment.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between flex-wrap gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium">{assignment.categoryName || assignment.orderNumber || 'Noma\'lum'}</h3>
-                            {getStatusBadge(assignment.status)}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {assignment.orderNumber || '-'} • {assignment.customerName || '-'}
-                          </p>
-                          {assignment.teamLeaderName && (
-                            <p className="text-sm">
-                              <span className="text-muted-foreground">Rahbar: </span>
-                              <span className="font-medium">{assignment.teamLeaderName}</span>
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-success border-success hover:bg-success/10"
-                            onClick={() => handleComplete(assignment.id)}
-                            disabled={actionLoading === assignment.id}
-                          >
-                            {actionLoading === assignment.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <>
-                                <CheckCircle2 className="h-4 w-4 mr-1" />
-                                Yakunlash
-                              </>
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-destructive border-destructive hover:bg-destructive/10"
-                            onClick={() => setDeleteConfirmId(assignment.id)}
-                            disabled={actionLoading === assignment.id}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+              {/* Orders Tab - List of orders to assign */}
+              <TabsContent value="orders" className="space-y-4 mt-4">
+                <h2 className="text-lg font-semibold">Tayinlash uchun Buyurtmalar</h2>
+                
+                {loadingOrders ? (
+                  Array(3).fill(0).map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="p-4">
+                        <Skeleton className="h-16 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : filteredOrders.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">Buyurtmalar Mavjud Emas</h3>
+                      <p className="text-muted-foreground">
+                        Hozirda tayinlash uchun kategoriyalarga ega buyurtmalar yo'q.
+                      </p>
                     </CardContent>
                   </Card>
-                ))
-            )}
+                ) : (
+                  filteredOrders.map((order) => {
+                    const unassignedCount = order.categories?.filter(c => !c.assignedTeamLeaderId).length || 0;
+                    return (
+                      <Card key={order.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between flex-wrap gap-4">
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-medium">{order.orderNumber}</h3>
+                                {getOrderStatusBadge(order.status)}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                Mijoz: {order.customerName || '-'}
+                              </p>
+                              <div className="flex items-center gap-2 text-sm">
+                                <Badge variant="outline" className="text-xs">
+                                  {unassignedCount} kategoriya tayinlanmagan
+                                </Badge>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenAssignModal(order)}
+                            >
+                              <UserCheck className="h-4 w-4 mr-2" />
+                              Tayinlash
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
+              </TabsContent>
+
+              {/* Pending Assignments Tab */}
+              <TabsContent value="pending" className="space-y-4 mt-4">
+                <h2 className="text-lg font-semibold">Kutilayotgan Tayinlovlar</h2>
+                
+                {loading ? (
+                  Array(3).fill(0).map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="p-4">
+                        <Skeleton className="h-16 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : filteredPendingAssignments.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">Kategoriyalar Mavjud Emas</h3>
+                      <p className="text-muted-foreground">
+                        Hozirda tayinlash uchun kategoriyalar yo'q.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  filteredPendingAssignments.map((assignment) => (
+                    <Card key={assignment.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between flex-wrap gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium">{assignment.categoryName || assignment.orderNumber || 'Noma\'lum'}</h3>
+                              {getStatusBadge(assignment.status)}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {assignment.orderNumber || '-'} • {assignment.customerName || '-'}
+                            </p>
+                            {assignment.teamLeaderName && (
+                              <p className="text-sm">
+                                <span className="text-muted-foreground">Rahbar: </span>
+                                <span className="font-medium">{assignment.teamLeaderName}</span>
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleStart(assignment.id)}
+                              disabled={actionLoading === assignment.id}
+                            >
+                              {actionLoading === assignment.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Play className="h-4 w-4 mr-1" />
+                                  Boshlash
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive border-destructive hover:bg-destructive/10"
+                              onClick={() => setDeleteConfirmId(assignment.id)}
+                              disabled={actionLoading === assignment.id}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
+
+              {/* Active Assignments Tab */}
+              <TabsContent value="active" className="space-y-4 mt-4">
+                <h2 className="text-lg font-semibold">Faol Tayinlovlar</h2>
+                
+                {loading ? (
+                  Array(2).fill(0).map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="p-4">
+                        <Skeleton className="h-16 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : filteredActiveAssignments.filter(a => a?.status === 'InProgress').length === 0 ? (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">Faol Tayinlovlar Yo'q</h3>
+                      <p className="text-muted-foreground">
+                        Hozirda jarayondagi tayinlovlar mavjud emas.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  filteredActiveAssignments
+                    .filter(a => a?.status === 'InProgress')
+                    .map((assignment) => (
+                      <Card key={assignment.id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between flex-wrap gap-4">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-medium">{assignment.categoryName || assignment.orderNumber || 'Noma\'lum'}</h3>
+                                {getStatusBadge(assignment.status)}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {assignment.orderNumber || '-'} • {assignment.customerName || '-'}
+                              </p>
+                              {assignment.teamLeaderName && (
+                                <p className="text-sm">
+                                  <span className="text-muted-foreground">Rahbar: </span>
+                                  <span className="font-medium">{assignment.teamLeaderName}</span>
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-success border-success hover:bg-success/10"
+                                onClick={() => handleComplete(assignment.id)}
+                                disabled={actionLoading === assignment.id}
+                              >
+                                {actionLoading === assignment.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                                    Yakunlash
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive border-destructive hover:bg-destructive/10"
+                                onClick={() => setDeleteConfirmId(assignment.id)}
+                                disabled={actionLoading === assignment.id}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* Team Leaders Overview */}
@@ -512,6 +671,18 @@ export const AssignmentsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Assignment Modal */}
+      <AssignCategoriesModal
+        open={assignModalOpen}
+        onClose={() => {
+          setAssignModalOpen(false);
+          setSelectedOrder(null);
+        }}
+        order={selectedOrder}
+        teamLeaders={teamLeaders}
+        onSuccess={handleAssignSuccess}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
