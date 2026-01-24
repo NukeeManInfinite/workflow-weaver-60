@@ -23,17 +23,15 @@ import { format, differenceInDays, parseISO } from 'date-fns';
 
 type StatusFilter = 'all' | 'waiting' | 'inProgress' | 'returned' | 'completed' | 'delayed';
 
-const getStatusInfo = (status: string, deadline?: string) => {
-  const isDelayed = deadline ? differenceInDays(new Date(), parseISO(deadline)) > 0 : false;
-  
-  const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
-    Created: { label: 'Kutilmoqda', variant: 'outline', color: 'text-muted-foreground' },
-    Assigned: { label: 'Kutilmoqda', variant: 'outline', color: 'text-muted-foreground' },
-    InProgress: { label: 'Jarayonda', variant: 'default', color: 'text-primary' },
-    RequiresRemeasurement: { label: 'Qayta o\'lchov', variant: 'destructive', color: 'text-destructive' },
-    SentToWarehouse: { label: 'Razmer tayyor', variant: 'secondary', color: 'text-success' },
-    Completed: { label: 'Tayyor', variant: 'secondary', color: 'text-success' },
-    Returned: { label: 'Qaytarilgan', variant: 'destructive', color: 'text-warning' },
+const getStatusInfo = (status: string) => {
+  const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; bgColor: string; textColor: string }> = {
+    Created: { label: 'Kutilmoqda', variant: 'outline', bgColor: 'bg-blue-50', textColor: 'text-blue-600' },
+    Assigned: { label: 'Kutilmoqda', variant: 'outline', bgColor: 'bg-blue-50', textColor: 'text-blue-600' },
+    InProgress: { label: 'Jarayonda', variant: 'default', bgColor: 'bg-green-50', textColor: 'text-green-600' },
+    RequiresRemeasurement: { label: 'Qayta o\'lchov', variant: 'destructive', bgColor: 'bg-orange-50', textColor: 'text-orange-600' },
+    SentToWarehouse: { label: 'Razmer tayyor', variant: 'secondary', bgColor: 'bg-green-50', textColor: 'text-green-600' },
+    Completed: { label: 'Tayyor', variant: 'secondary', bgColor: 'bg-green-50', textColor: 'text-green-600' },
+    Returned: { label: 'Qaytarilgan', variant: 'destructive', bgColor: 'bg-yellow-50', textColor: 'text-yellow-600' },
   };
   
   return statusMap[status] || statusMap.Created;
@@ -42,17 +40,21 @@ const getStatusInfo = (status: string, deadline?: string) => {
 const getDeadlineInfo = (deadline?: string) => {
   if (!deadline) return null;
   
-  const deadlineDate = parseISO(deadline);
-  const daysLeft = differenceInDays(deadlineDate, new Date());
-  
-  if (daysLeft < 0) {
-    return { text: `${Math.abs(daysLeft)} kun kechikdi`, color: 'text-destructive', isDelayed: true };
-  } else if (daysLeft === 0) {
-    return { text: 'Bugun', color: 'text-warning', isDelayed: false };
-  } else if (daysLeft <= 3) {
-    return { text: `${daysLeft} kun qoldi`, color: 'text-warning', isDelayed: false };
+  try {
+    const deadlineDate = parseISO(deadline);
+    const daysLeft = differenceInDays(deadlineDate, new Date());
+    
+    if (daysLeft < 0) {
+      return { text: `${Math.abs(daysLeft)} kun kechikdi`, color: 'text-destructive', bgColor: 'bg-destructive', isDelayed: true };
+    } else if (daysLeft === 0) {
+      return { text: 'Bugun', color: 'text-warning', bgColor: 'bg-warning', isDelayed: false };
+    } else if (daysLeft <= 3) {
+      return { text: `${daysLeft} kun qoldi`, color: 'text-warning', bgColor: 'bg-warning', isDelayed: false };
+    }
+    return { text: format(deadlineDate, 'dd/MM/yyyy'), color: 'text-muted-foreground', bgColor: '', isDelayed: false };
+  } catch {
+    return null;
   }
-  return { text: format(deadlineDate, 'dd/MM/yyyy'), color: 'text-muted-foreground', isDelayed: false };
 };
 
 const getActionButton = (status: string) => {
@@ -61,13 +63,13 @@ const getActionButton = (status: string) => {
     case 'Assigned':
       return { label: 'Ishni boshlash', color: 'bg-primary hover:bg-primary/90' };
     case 'InProgress':
-      return { label: 'Davom ettirish', color: 'bg-success hover:bg-success/90' };
+      return { label: 'Davom ettirish', color: 'bg-green-500 hover:bg-green-600' };
     case 'RequiresRemeasurement':
-      return { label: 'Qayta o\'lchov', color: 'bg-destructive hover:bg-destructive/90' };
+      return { label: 'Qayta o\'lchov', color: 'bg-orange-500 hover:bg-orange-600' };
     case 'SentToWarehouse':
-      return { label: 'Tahrirlash', color: 'bg-info hover:bg-info/90' };
+      return { label: 'Tahrirlash', color: 'bg-blue-500 hover:bg-blue-600' };
     case 'Returned':
-      return { label: 'Davom ettirish', color: 'bg-success hover:bg-success/90' };
+      return { label: 'Davom ettirish', color: 'bg-green-500 hover:bg-green-600' };
     default:
       return { label: 'Davom ettirish', color: 'bg-primary hover:bg-primary/90' };
   }
@@ -119,16 +121,21 @@ export const ConstructorOrdersPage: React.FC = () => {
   const getFilteredOrders = () => {
     let filtered = orders.filter(order => {
       const search = searchTerm.toLowerCase();
+      const categoryName = Array.isArray(order.categoryNames) 
+        ? order.categoryNames.join(' ').toLowerCase() 
+        : (order.categoryName || '').toLowerCase();
+      
       return (
         order.orderNumber?.toLowerCase().includes(search) ||
         order.customerName?.toLowerCase().includes(search) ||
-        order.contractNumber?.toLowerCase().includes(search)
+        order.contractNumber?.toLowerCase().includes(search) ||
+        categoryName.includes(search)
       );
     });
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter(order => {
-        const deadlineInfo = getDeadlineInfo((order as any).deadline);
+        const deadlineInfo = getDeadlineInfo(order.deadline);
         switch (statusFilter) {
           case 'waiting':
             return order.status === 'Created' || order.status === 'Assigned';
@@ -158,8 +165,13 @@ export const ConstructorOrdersPage: React.FC = () => {
     completed: orders.filter(o => o.status === 'Completed' || o.status === 'SentToWarehouse').length,
     returned: orders.filter(o => o.status === 'Returned' || o.status === 'RequiresRemeasurement').length,
     delayed: orders.filter(o => {
-      const deadline = (o as any).deadline;
-      return deadline && differenceInDays(new Date(), parseISO(deadline)) > 0;
+      const deadline = o.deadline;
+      if (!deadline) return false;
+      try {
+        return differenceInDays(new Date(), parseISO(deadline)) > 0;
+      } catch {
+        return false;
+      }
     }).length,
   };
 
@@ -185,10 +197,12 @@ export const ConstructorOrdersPage: React.FC = () => {
       <div className="p-6 space-y-6 animate-fade-in">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          <Card className="border-l-4 border-l-muted-foreground">
+          <Card className="border-l-4 border-l-blue-400">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-muted-foreground" />
+                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-blue-600" />
+                </div>
                 <div>
                   <div className="text-2xl font-bold">{stats.waiting}</div>
                   <div className="text-sm text-muted-foreground">Kutilmoqda</div>
@@ -197,10 +211,12 @@ export const ConstructorOrdersPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-primary">
+          <Card className="border-l-4 border-l-indigo-500">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <Tag className="h-5 w-5 text-primary" />
+                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                  <Tag className="h-5 w-5 text-indigo-600" />
+                </div>
                 <div>
                   <div className="text-2xl font-bold">{stats.inProgress}</div>
                   <div className="text-sm text-muted-foreground">Jarayonda</div>
@@ -209,10 +225,12 @@ export const ConstructorOrdersPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-success">
+          <Card className="border-l-4 border-l-green-500">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-success" />
+                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
                 <div>
                   <div className="text-2xl font-bold">{stats.completed}</div>
                   <div className="text-sm text-muted-foreground">Tayyor</div>
@@ -221,10 +239,12 @@ export const ConstructorOrdersPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-warning">
+          <Card className="border-l-4 border-l-yellow-500">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <RotateCcw className="h-5 w-5 text-warning" />
+                <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <RotateCcw className="h-5 w-5 text-yellow-600" />
+                </div>
                 <div>
                   <div className="text-2xl font-bold">{stats.returned}</div>
                   <div className="text-sm text-muted-foreground">Qaytarilgan</div>
@@ -233,10 +253,12 @@ export const ConstructorOrdersPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-destructive">
+          <Card className="border-l-4 border-l-red-500">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
                 <div>
                   <div className="text-2xl font-bold">{stats.delayed}</div>
                   <div className="text-sm text-muted-foreground">Kechikkan</div>
@@ -262,14 +284,14 @@ export const ConstructorOrdersPage: React.FC = () => {
             {statusTabs.map(tab => (
               <Button
                 key={tab.key}
-                variant={statusFilter === tab.key ? 'default' : 'outline'}
+                variant={statusFilter === tab.key ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setStatusFilter(tab.key as StatusFilter)}
-                className="gap-2"
+                className={`gap-2 ${statusFilter === tab.key ? '' : 'text-muted-foreground'}`}
               >
                 {tab.icon && <tab.icon className="h-4 w-4" />}
                 {tab.label}
-                <Badge variant="secondary" className="ml-1 bg-background/50">
+                <Badge variant="secondary" className="ml-1 bg-muted text-muted-foreground">
                   {tab.count}
                 </Badge>
               </Button>
@@ -315,38 +337,42 @@ export const ConstructorOrdersPage: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredOrders.map(order => {
-              const statusInfo = getStatusInfo(order.status, (order as any).deadline);
-              const deadlineInfo = getDeadlineInfo((order as any).deadline);
+              const statusInfo = getStatusInfo(order.status);
+              const deadlineInfo = getDeadlineInfo(order.deadline);
               const actionButton = getActionButton(order.status);
               const furnitureCount = order.furnitureTypes?.length || 0;
               const drawingsCount = order.furnitureTypes?.reduce((acc, ft) => acc + (ft.drawingsCount || 0), 0) || 0;
               const completedCount = order.furnitureTypes?.filter(ft => ft.isCompleted).length || 0;
-              const categoryName = order.furnitureTypes?.[0]?.name || 'Kategoriya';
+              
+              // Get category name
+              const categoryName = Array.isArray(order.categoryNames) 
+                ? order.categoryNames[0] 
+                : (order.categoryName || order.furnitureTypes?.[0]?.name || 'Kategoriya');
 
               return (
                 <Card 
                   key={order.id} 
-                  className="hover:shadow-md transition-shadow border"
+                  className="hover:shadow-md transition-shadow border bg-card"
                 >
                   <CardContent className="p-5">
                     <div className="space-y-4">
                       {/* Header */}
                       <div className="flex items-start justify-between">
                         <div>
-                          <span className="text-primary font-semibold text-lg">
+                          <span className="text-primary font-bold text-lg">
                             #{order.orderNumber?.split('-').pop() || order.id}
                           </span>
                           <p className="text-sm text-muted-foreground mt-0.5">
                             {order.customerName}
                           </p>
                         </div>
-                        <Badge variant={statusInfo.variant} className="shrink-0">
+                        <Badge className={`shrink-0 ${statusInfo.bgColor} ${statusInfo.textColor} border-0`}>
                           {statusInfo.label}
                         </Badge>
                       </div>
 
                       {/* Category Badge */}
-                      <Badge variant="outline" className="rounded-md">
+                      <Badge variant="outline" className="rounded-md font-normal">
                         {categoryName}
                       </Badge>
 
@@ -362,14 +388,25 @@ export const ConstructorOrdersPage: React.FC = () => {
                             <ImageIcon className="h-3 w-3" /> {drawingsCount} ta
                           </span>
                         </div>
-                        {deadlineInfo && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Deadline:</span>
-                            <span className={`font-medium ${deadlineInfo.color}`}>
-                              {deadlineInfo.text}
-                            </span>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Deadline:</span>
+                          <div className="flex items-center gap-2">
+                            {deadlineInfo ? (
+                              <>
+                                <span className={`font-medium ${deadlineInfo.color}`}>
+                                  {order.deadline ? format(parseISO(order.deadline), 'dd/MM/yyyy') : '-'}
+                                </span>
+                                {deadlineInfo.isDelayed && (
+                                  <Badge variant="destructive" className="text-xs px-1.5 py-0">
+                                    {deadlineInfo.text}
+                                  </Badge>
+                                )}
+                              </>
+                            ) : (
+                              <span className="font-medium">-</span>
+                            )}
                           </div>
-                        )}
+                        </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Bajarildi</span>
                           <span className="font-medium">{completedCount}/{furnitureCount}</span>

@@ -57,15 +57,45 @@ export interface ConstructorOrder {
   orderNumber: string;
   contractNumber?: string;
   customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  categoryName?: string;
+  categoryNames?: string[] | string;
   status: string;
   statusText?: string;
   totalAmount: number;
+  deadline?: string;
   createdAt: string;
   updatedAt?: string;
   assignedAt?: string;
   constructorId: number;
   constructorName?: string;
   furnitureTypes: FurnitureTypeSummary[];
+  categories?: OrderCategory[];
+}
+
+export interface OrderCategory {
+  id: number;
+  name: string;
+  detailsCount: number;
+  dimensionsCount: number;
+  status: 'pending' | 'inProgress' | 'completed';
+  details?: CategoryDetail[];
+}
+
+export interface CategoryDetail {
+  id: number;
+  name: string;
+  dimensions: DimensionEntry[];
+  materials: string[];
+  notes?: string;
+}
+
+export interface DimensionEntry {
+  id: number;
+  width: number;
+  height: number;
+  thickness: number;
 }
 
 export interface FurnitureTypeSummary {

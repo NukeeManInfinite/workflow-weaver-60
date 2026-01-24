@@ -1,29 +1,45 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppHeader } from '@/components/layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { constructorService } from '@/services/constructorService';
-import { ConstructorOrder, FurnitureType, Detail, Drawing } from '@/types/constructor';
-import { DimensionsForm, MaterialsForm } from '@/components/constructor';
+import { ConstructorOrder, FurnitureType, Detail } from '@/types/constructor';
 import {
   ArrowLeft,
-  Package,
+  User,
+  Phone,
+  MapPin,
+  Calendar,
+  Layers,
   Ruler,
-  FileImage,
-  FileText,
+  Tag,
   Plus,
-  Edit,
   Trash2,
-  CheckCircle,
-  Clock,
-  Upload,
-  Eye,
+  ChevronDown,
+  History,
+  ImagePlus,
+  Check,
+  X,
 } from 'lucide-react';
 import {
   Dialog,
@@ -32,9 +48,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +58,55 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { format, parseISO, differenceInDays } from 'date-fns';
+
+// Detail entry with multiple dimensions
+interface DetailEntry {
+  id?: number;
+  name: string;
+  dimensions: DimensionRow[];
+  materials: string[];
+  notes: string;
+  steps: number;
+  isNew?: boolean;
+}
+
+interface DimensionRow {
+  id?: number;
+  width: number;
+  height: number;
+  thickness: number;
+  isNew?: boolean;
+}
+
+interface CategoryState {
+  id: number;
+  name: string;
+  isOpen: boolean;
+  details: DetailEntry[];
+  detailsCount: number;
+  dimensionsCount: number;
+}
+
+const AVAILABLE_MATERIALS = [
+  'DSP 18mm Sut rangi',
+  'MDF 16mm Oq',
+  'DSP 16mm Qora',
+  'Shisha 4mm',
+  'Oyna 6mm',
+  'Metall profil',
+  'PVC qirrasi',
+];
+
+const DETAIL_NAMES = [
+  'Yon bakkasi',
+  'Yuqori qopqoq',
+  'Pastki qopqoq',
+  'Orqa devor',
+  'Tokcha',
+  'Eshik',
+  'Polka',
+];
 
 export const ConstructorOrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -53,30 +115,25 @@ export const ConstructorOrderDetailPage: React.FC = () => {
   const { user } = useAuth();
 
   const [order, setOrder] = useState<ConstructorOrder | null>(null);
-  const [furnitureTypes, setFurnitureTypes] = useState<FurnitureType[]>([]);
+  const [categories, setCategories] = useState<CategoryState[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedFurnitureType, setSelectedFurnitureType] = useState<FurnitureType | null>(null);
-  const [activeTab, setActiveTab] = useState('furniture-types');
+  const [activityOpen, setActivityOpen] = useState(false);
 
-  // Modal states
-  const [ftModalOpen, setFtModalOpen] = useState(false);
-  const [ftEditId, setFtEditId] = useState<number | null>(null);
-  const [ftName, setFtName] = useState('');
-  const [ftSaving, setFtSaving] = useState(false);
+  // Category modal state
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+
+  // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'category' | 'detail'; id: number; catIndex?: number } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Drawing upload states
-  const [drawingModalOpen, setDrawingModalOpen] = useState(false);
-  const [drawingFile, setDrawingFile] = useState<File | null>(null);
-  const [drawingDescription, setDrawingDescription] = useState('');
-  const [uploadingDrawing, setUploadingDrawing] = useState(false);
-  const [drawingFtId, setDrawingFtId] = useState<number | null>(null);
-
-  // Detail states
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [detailFtId, setDetailFtId] = useState<number | null>(null);
+  // Room images
+  const [roomImages, setRoomImages] = useState<string[]>([]);
+  const [designImages, setDesignImages] = useState<string[]>([]);
+  const roomInputRef = useRef<HTMLInputElement>(null);
+  const designInputRef = useRef<HTMLInputElement>(null);
 
   const loadOrder = useCallback(async () => {
     if (!id) return;
@@ -85,12 +142,61 @@ export const ConstructorOrderDetailPage: React.FC = () => {
       const orderData = await constructorService.getOrderById(Number(id));
       setOrder(orderData);
 
-      // Load furniture types for this order
+      // Load furniture types for this order (categories)
       const allFurnitureTypes = await constructorService.getFurnitureTypes();
-      const orderFurnitureTypes = allFurnitureTypes.filter(
-        ft => ft.constructorId === Number(user?.id) || orderData.furnitureTypes?.some(oft => oft.id === ft.id)
+      
+      // Map furniture types to categories with their details
+      const categoryStates: CategoryState[] = await Promise.all(
+        allFurnitureTypes.map(async (ft) => {
+          try {
+            const ftDetails = await constructorService.getDetailsByFurnitureType(ft.id);
+            
+            // Group details by name
+            const groupedDetails: Record<string, DetailEntry> = {};
+            ftDetails.forEach((d) => {
+              if (!groupedDetails[d.name]) {
+                groupedDetails[d.name] = {
+                  id: d.id,
+                  name: d.name,
+                  dimensions: [],
+                  materials: d.material ? [d.material] : [],
+                  notes: d.notes || '',
+                  steps: 0,
+                };
+              }
+              groupedDetails[d.name].dimensions.push({
+                id: d.id,
+                width: d.width,
+                height: d.height,
+                thickness: d.thickness,
+              });
+            });
+
+            const details = Object.values(groupedDetails);
+            const dimensionsCount = details.reduce((acc, d) => acc + d.dimensions.length, 0);
+
+            return {
+              id: ft.id,
+              name: ft.name,
+              isOpen: false,
+              details,
+              detailsCount: details.length,
+              dimensionsCount,
+            };
+          } catch {
+            return {
+              id: ft.id,
+              name: ft.name,
+              isOpen: false,
+              details: [],
+              detailsCount: 0,
+              dimensionsCount: 0,
+            };
+          }
+        })
       );
-      setFurnitureTypes(orderFurnitureTypes);
+
+      setCategories(categoryStates);
     } catch (error: any) {
       console.error('Failed to load order:', error);
       toast({
@@ -101,67 +207,241 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, toast, user]);
+  }, [id, toast]);
 
   useEffect(() => {
     loadOrder();
   }, [loadOrder]);
 
-  // Furniture Type CRUD
-  const handleCreateFT = async () => {
-    if (!ftName.trim() || !id) return;
-    setFtSaving(true);
+  const toggleCategory = (index: number) => {
+    setCategories(prev => prev.map((cat, i) => 
+      i === index ? { ...cat, isOpen: !cat.isOpen } : cat
+    ));
+  };
+
+  // Add new category (furniture type)
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim() || !id) return;
+    setSavingCategory(true);
     try {
-      await constructorService.createFurnitureType({ name: ftName, orderId: Number(id) });
-      toast({ title: 'Muvaffaqiyat', description: 'Mebel turi yaratildi' });
-      setFtModalOpen(false);
-      setFtName('');
+      await constructorService.createFurnitureType({ name: newCategoryName, orderId: Number(id) });
+      toast({ title: 'Muvaffaqiyat', description: 'Kategoriya qo\'shildi' });
+      setCategoryModalOpen(false);
+      setNewCategoryName('');
       loadOrder();
     } catch (error: any) {
       toast({
         title: 'Xatolik',
-        description: error?.response?.data?.message || 'Mebel turini yaratishda xatolik',
+        description: error?.response?.data?.message || 'Kategoriya qo\'shishda xatolik',
         variant: 'destructive',
       });
     } finally {
-      setFtSaving(false);
+      setSavingCategory(false);
     }
   };
 
-  const handleUpdateFT = async () => {
-    if (!ftName.trim() || !ftEditId) return;
-    setFtSaving(true);
+  // Add new detail to category
+  const handleAddDetail = (categoryIndex: number, detailName: string) => {
+    if (!detailName.trim()) return;
+    
+    setCategories(prev => prev.map((cat, i) => {
+      if (i !== categoryIndex) return cat;
+      
+      const existingDetail = cat.details.find(d => d.name === detailName);
+      if (existingDetail) {
+        toast({ title: 'Bu detal allaqachon mavjud', variant: 'destructive' });
+        return cat;
+      }
+      
+      return {
+        ...cat,
+        details: [
+          ...cat.details,
+          {
+            name: detailName,
+            dimensions: [{ width: 0, height: 0, thickness: 18, isNew: true }],
+            materials: [],
+            notes: '',
+            steps: 2,
+            isNew: true,
+          },
+        ],
+        detailsCount: cat.detailsCount + 1,
+        dimensionsCount: cat.dimensionsCount + 1,
+      };
+    }));
+  };
+
+  // Add dimension row to detail
+  const handleAddDimension = (categoryIndex: number, detailIndex: number) => {
+    setCategories(prev => prev.map((cat, i) => {
+      if (i !== categoryIndex) return cat;
+      return {
+        ...cat,
+        details: cat.details.map((det, di) => {
+          if (di !== detailIndex) return det;
+          return {
+            ...det,
+            dimensions: [...det.dimensions, { width: 0, height: 0, thickness: 18, isNew: true }],
+          };
+        }),
+        dimensionsCount: cat.dimensionsCount + 1,
+      };
+    }));
+  };
+
+  // Update dimension
+  const handleUpdateDimension = (
+    categoryIndex: number, 
+    detailIndex: number, 
+    dimIndex: number, 
+    field: keyof DimensionRow, 
+    value: number
+  ) => {
+    setCategories(prev => prev.map((cat, i) => {
+      if (i !== categoryIndex) return cat;
+      return {
+        ...cat,
+        details: cat.details.map((det, di) => {
+          if (di !== detailIndex) return det;
+          return {
+            ...det,
+            dimensions: det.dimensions.map((dim, dmi) => {
+              if (dmi !== dimIndex) return dim;
+              return { ...dim, [field]: value };
+            }),
+          };
+        }),
+      };
+    }));
+  };
+
+  // Remove dimension
+  const handleRemoveDimension = (categoryIndex: number, detailIndex: number, dimIndex: number) => {
+    setCategories(prev => prev.map((cat, i) => {
+      if (i !== categoryIndex) return cat;
+      const detail = cat.details[detailIndex];
+      if (detail.dimensions.length <= 1) {
+        // If only one dimension left, remove the entire detail
+        return {
+          ...cat,
+          details: cat.details.filter((_, di) => di !== detailIndex),
+          detailsCount: cat.detailsCount - 1,
+          dimensionsCount: cat.dimensionsCount - 1,
+        };
+      }
+      return {
+        ...cat,
+        details: cat.details.map((det, di) => {
+          if (di !== detailIndex) return det;
+          return {
+            ...det,
+            dimensions: det.dimensions.filter((_, dmi) => dmi !== dimIndex),
+          };
+        }),
+        dimensionsCount: cat.dimensionsCount - 1,
+      };
+    }));
+  };
+
+  // Toggle material
+  const handleToggleMaterial = (categoryIndex: number, detailIndex: number, material: string) => {
+    setCategories(prev => prev.map((cat, i) => {
+      if (i !== categoryIndex) return cat;
+      return {
+        ...cat,
+        details: cat.details.map((det, di) => {
+          if (di !== detailIndex) return det;
+          const hasMaterial = det.materials.includes(material);
+          return {
+            ...det,
+            materials: hasMaterial 
+              ? det.materials.filter(m => m !== material)
+              : [...det.materials, material],
+          };
+        }),
+      };
+    }));
+  };
+
+  // Update notes
+  const handleUpdateNotes = (categoryIndex: number, detailIndex: number, notes: string) => {
+    setCategories(prev => prev.map((cat, i) => {
+      if (i !== categoryIndex) return cat;
+      return {
+        ...cat,
+        details: cat.details.map((det, di) => {
+          if (di !== detailIndex) return det;
+          return { ...det, notes };
+        }),
+      };
+    }));
+  };
+
+  // Save detail to backend
+  const handleSaveDetail = async (categoryIndex: number, detailIndex: number) => {
+    const category = categories[categoryIndex];
+    const detail = category.details[detailIndex];
+
+    for (const dim of detail.dimensions) {
+      if (dim.width <= 0 || dim.height <= 0 || dim.thickness <= 0) {
+        toast({ title: 'Xatolik', description: 'Barcha o\'lchamlarni to\'ldiring', variant: 'destructive' });
+        return;
+      }
+    }
+
     try {
-      await constructorService.updateFurnitureType(ftEditId, { name: ftName });
-      toast({ title: 'Muvaffaqiyat', description: 'Mebel turi yangilandi' });
-      setFtModalOpen(false);
-      setFtEditId(null);
-      setFtName('');
+      // Save each dimension as a separate detail entry
+      for (const dim of detail.dimensions) {
+        if (dim.isNew || !dim.id) {
+          await constructorService.createDetail({
+            furnitureTypeId: category.id,
+            name: detail.name,
+            material: detail.materials.join(', ') || 'Noma\'lum',
+            width: dim.width,
+            height: dim.height,
+            thickness: dim.thickness,
+            quantity: 1,
+            notes: detail.notes,
+          });
+        } else {
+          await constructorService.updateDetail(dim.id, {
+            name: detail.name,
+            material: detail.materials.join(', ') || 'Noma\'lum',
+            width: dim.width,
+            height: dim.height,
+            thickness: dim.thickness,
+            quantity: 1,
+            notes: detail.notes,
+          });
+        }
+      }
+
+      toast({ title: 'Saqlandi', description: 'Detal muvaffaqiyatli saqlandi' });
       loadOrder();
     } catch (error: any) {
       toast({
         title: 'Xatolik',
-        description: error?.response?.data?.message || 'Mebel turini yangilashda xatolik',
+        description: error?.response?.data?.message || 'Saqlashda xatolik',
         variant: 'destructive',
       });
-    } finally {
-      setFtSaving(false);
     }
   };
 
-  const handleDeleteFT = async () => {
-    if (!deleteId) return;
+  // Delete category
+  const handleDeleteCategory = async () => {
+    if (!deleteTarget || deleteTarget.type !== 'category') return;
     setDeleting(true);
     try {
-      await constructorService.deleteFurnitureType(deleteId);
-      toast({ title: 'Muvaffaqiyat', description: "Mebel turi o'chirildi" });
+      await constructorService.deleteFurnitureType(deleteTarget.id);
+      toast({ title: 'O\'chirildi', description: 'Kategoriya o\'chirildi' });
       setDeleteModalOpen(false);
-      setDeleteId(null);
+      setDeleteTarget(null);
       loadOrder();
     } catch (error: any) {
       toast({
         title: 'Xatolik',
-        description: error?.response?.data?.message || "Mebel turini o'chirishda xatolik",
+        description: error?.response?.data?.message || 'O\'chirishda xatolik',
         variant: 'destructive',
       });
     } finally {
@@ -169,64 +449,48 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     }
   };
 
-  const openEditFTModal = (ft: FurnitureType) => {
-    setFtEditId(ft.id);
-    setFtName(ft.name);
-    setFtModalOpen(true);
-  };
-
-  const openDeleteModal = (ftId: number) => {
-    setDeleteId(ftId);
-    setDeleteModalOpen(true);
-  };
-
-  // Drawing upload
-  const handleUploadDrawing = async () => {
-    if (!drawingFile || !drawingFtId) return;
-    setUploadingDrawing(true);
-    try {
-      await constructorService.uploadDrawing(drawingFtId, drawingFile, drawingDescription);
-      toast({ title: 'Muvaffaqiyat', description: 'Chizma yuklandi' });
-      setDrawingModalOpen(false);
-      setDrawingFile(null);
-      setDrawingDescription('');
-      setDrawingFtId(null);
-      loadOrder();
-    } catch (error: any) {
-      toast({
-        title: 'Xatolik',
-        description: error?.response?.data?.message || 'Chizma yuklashda xatolik',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploadingDrawing(false);
+  // Handle image upload
+  const handleImageUpload = (type: 'room' | 'design', files: FileList | null) => {
+    if (!files) return;
+    const newImages = Array.from(files).map(file => URL.createObjectURL(file));
+    if (type === 'room') {
+      setRoomImages(prev => [...prev, ...newImages]);
+    } else {
+      setDesignImages(prev => [...prev, ...newImages]);
     }
   };
 
-  const openDrawingModal = (ftId: number) => {
-    setDrawingFtId(ftId);
-    setDrawingModalOpen(true);
+  // Complete order
+  const handleCompleteOrder = async () => {
+    // Find all furniture type IDs and mark them complete
+    for (const cat of categories) {
+      try {
+        await constructorService.completeFurnitureType(cat.id);
+      } catch (error) {
+        console.error('Failed to complete category:', cat.id, error);
+      }
+    }
+    toast({ title: 'Muvaffaqiyat', description: 'Razmer tayyor deb belgilandi' });
+    navigate('/constructor/orders');
   };
 
-  // Complete furniture type
-  const handleComplete = async (ftId: number) => {
+  const getDeadlineInfo = (deadline?: string) => {
+    if (!deadline) return null;
     try {
-      await constructorService.completeFurnitureType(ftId);
-      toast({ title: 'Muvaffaqiyat', description: 'Ishlab chiqarishga yuborildi' });
-      loadOrder();
-    } catch (error: any) {
-      toast({
-        title: 'Xatolik',
-        description: error?.response?.data?.message || 'Yuborishda xatolik',
-        variant: 'destructive',
-      });
+      const deadlineDate = parseISO(deadline);
+      const daysLeft = differenceInDays(deadlineDate, new Date());
+      if (daysLeft < 0) {
+        return { text: `${Math.abs(daysLeft)} kun kechikdi`, isDelayed: true };
+      }
+      return { text: format(deadlineDate, 'd-MMMM, yyyy'), isDelayed: false };
+    } catch {
+      return null;
     }
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader title="Yuklanyapti..." description="" />
         <div className="p-6 space-y-6">
           <Skeleton className="h-10 w-32" />
           <Skeleton className="h-40 w-full" />
@@ -239,262 +503,472 @@ export const ConstructorOrderDetailPage: React.FC = () => {
   if (!order) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader title="Buyurtma topilmadi" description="" />
         <div className="p-6">
           <Button variant="outline" onClick={() => navigate('/constructor/orders')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Orqaga
           </Button>
+          <p className="mt-4 text-muted-foreground">Buyurtma topilmadi</p>
         </div>
       </div>
     );
   }
 
+  const deadlineInfo = getDeadlineInfo(order.deadline);
+  const totalDetails = categories.reduce((acc, c) => acc + c.detailsCount, 0);
+  const totalDimensions = categories.reduce((acc, c) => acc + c.dimensionsCount, 0);
+
+  // Get category name
+  const categoryName = Array.isArray(order.categoryNames) 
+    ? order.categoryNames[0] 
+    : (order.categoryName || order.furnitureTypes?.[0]?.name || '');
+
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader
-        title={`Buyurtma #${order.orderNumber?.split('-').pop() || order.id}`}
-        description={order.customerName}
-      />
+      {/* Header with back button */}
+      <div className="border-b bg-card px-6 py-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/constructor/orders')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold">
+              Buyurtma #{order.orderNumber?.split('-').pop() || order.id}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {categoryName && `${categoryName} • `}
+              {categories.length} kategoriya • {totalDetails} detal • {totalDimensions} razmer
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="p-6 space-y-6">
-        {/* Back button and order info */}
-        <div className="flex items-center justify-between">
-          <Button variant="outline" onClick={() => navigate('/constructor/orders')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Orqaga
-          </Button>
-          <Badge variant={order.status === 'Completed' ? 'default' : 'secondary'}>
-            {order.status === 'Completed' ? 'Tugallangan' : order.status === 'InProgress' ? 'Jarayonda' : 'Kutilmoqda'}
-          </Badge>
-        </div>
-
-        {/* Order Summary Card */}
+        {/* Customer Info Card */}
         <Card>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-4 text-muted-foreground">
+              <User className="h-4 w-4" />
+              <span className="text-sm font-medium">Mijoz ma'lumotlari</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
-                <p className="text-sm text-muted-foreground">Buyurtma raqami</p>
-                <p className="font-semibold">{order.orderNumber}</p>
+                <p className="text-xs text-muted-foreground mb-1">Mijoz nomi</p>
+                <p className="font-medium">{order.customerName}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Shartnoma</p>
-                <p className="font-semibold">{order.contractNumber || '-'}</p>
+                <p className="text-xs text-muted-foreground mb-1">Telefon</p>
+                <p className="font-medium flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  {order.customerPhone || '+998 -- --- -- --'}
+                </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Mijoz</p>
-                <p className="font-semibold">{order.customerName}</p>
+                <p className="text-xs text-muted-foreground mb-1">Manzil</p>
+                <p className="font-medium flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {order.customerAddress || 'Kiritilmagan'}
+                </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Summa</p>
-                <p className="font-semibold">${order.totalAmount?.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mb-1">Deadline</p>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                  <span className="font-medium">{deadlineInfo?.text || 'Belgilanmagan'}</span>
+                  {deadlineInfo?.isDelayed && (
+                    <Badge variant="destructive" className="text-xs px-1.5 py-0">
+                      {deadlineInfo.text}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Tabs for Furniture Types, Details, Drawings */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="furniture-types" className="gap-2">
-              <Package className="h-4 w-4" />
-              Mebel turlari
-            </TabsTrigger>
-            <TabsTrigger value="details" className="gap-2">
-              <Ruler className="h-4 w-4" />
-              Detallar
-            </TabsTrigger>
-            <TabsTrigger value="drawings" className="gap-2">
-              <FileImage className="h-4 w-4" />
-              Chizmalar
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Furniture Types Tab */}
-          <TabsContent value="furniture-types" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Mebel turlari</h3>
-              <Button onClick={() => { setFtEditId(null); setFtName(''); setFtModalOpen(true); }}>
-                <Plus className="h-4 w-4 mr-2" />
-                Yangi mebel turi
-              </Button>
+        {/* Categories Section */}
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Layers className="h-4 w-4" />
+                <span className="text-sm font-medium">Kategoriyalar</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  <Layers className="h-3 w-3 inline mr-1" /> {totalDetails} detal
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  <Tag className="h-3 w-3 inline mr-1" /> {totalDimensions} razmer
+                </span>
+                <Button size="sm" onClick={() => setCategoryModalOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Kategoriya
+                </Button>
+              </div>
             </div>
 
-            {furnitureTypes.length === 0 ? (
-              <Card>
-                <CardContent className="py-12">
-                  <div className="flex flex-col items-center text-muted-foreground">
-                    <Package className="h-12 w-12 mb-4 opacity-50" />
-                    <p>Hali mebel turi qo'shilmagan</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4">
-                {furnitureTypes.map(ft => (
-                  <Card key={ft.id} className="hover:shadow-sm transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <Package className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <h4 className="font-semibold">{ft.name}</h4>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>{ft.details?.length || 0} detal</span>
-                              <span>{ft.drawings?.length || 0} chizma</span>
+            {/* Category List */}
+            <div className="space-y-3">
+              {categories.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Layers className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>Hali kategoriya qo'shilmagan</p>
+                </div>
+              ) : (
+                categories.map((category, catIndex) => (
+                  <Collapsible
+                    key={category.id}
+                    open={category.isOpen}
+                    onOpenChange={() => toggleCategory(catIndex)}
+                  >
+                    <Card className="border">
+                      <CollapsibleTrigger asChild>
+                        <CardContent className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="h-6 w-6 rounded bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center">
+                                {catIndex + 1}
+                              </span>
+                              <span className="font-medium">{category.name}</span>
+                              <Badge variant="outline" className="text-xs">
+                                <Layers className="h-3 w-3 mr-1" /> {category.detailsCount} detal
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                <Tag className="h-3 w-3 mr-1" /> {category.dimensionsCount} razmer
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTarget({ type: 'category', id: category.id });
+                                  setDeleteModalOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                              <ChevronDown className={`h-4 w-4 transition-transform ${category.isOpen ? 'rotate-180' : ''}`} />
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {ft.isCompleted ? (
-                            <Badge variant="default" className="bg-success">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Tugallangan
-                            </Badge>
-                          ) : (
-                            <>
-                              <Button size="sm" variant="outline" onClick={() => openEditFTModal(ft)}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="outline" className="text-destructive" onClick={() => openDeleteModal(ft.id)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" onClick={() => handleComplete(ft.id)}>
-                                Ishlab chiqarishga yuborish
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+                        </CardContent>
+                      </CollapsibleTrigger>
 
-          {/* Details Tab */}
-          <TabsContent value="details" className="space-y-4">
-            <h3 className="text-lg font-semibold">Detallar</h3>
-            {furnitureTypes.length === 0 ? (
-              <Card>
-                <CardContent className="py-12">
-                  <div className="flex flex-col items-center text-muted-foreground">
-                    <Ruler className="h-12 w-12 mb-4 opacity-50" />
-                    <p>Avval mebel turi qo'shing</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-6">
-                {furnitureTypes.map(ft => (
-                  <Card key={ft.id}>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Package className="h-4 w-4" />
-                        {ft.name}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <DimensionsForm furnitureTypeId={ft.id} onSave={loadOrder} />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+                      <CollapsibleContent>
+                        <div className="border-t p-4 space-y-4 bg-muted/20">
+                          {/* Add Detail Section */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Detal qo'shish</Label>
+                            <div className="flex gap-2">
+                              <Select onValueChange={(v) => handleAddDetail(catIndex, v)}>
+                                <SelectTrigger className="flex-1">
+                                  <SelectValue placeholder="Detal nomini tanlang..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {DETAIL_NAMES.filter(n => !category.details.some(d => d.name === n)).map(name => (
+                                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button variant="default" onClick={() => {
+                                const customName = prompt('Yangi detal nomi:');
+                                if (customName) handleAddDetail(catIndex, customName);
+                              }}>
+                                <Plus className="h-4 w-4 mr-1" />
+                                Yangi detal nomi
+                              </Button>
+                            </div>
+                          </div>
 
-          {/* Drawings Tab */}
-          <TabsContent value="drawings" className="space-y-4">
-            <h3 className="text-lg font-semibold">Chizmalar</h3>
-            {furnitureTypes.length === 0 ? (
-              <Card>
-                <CardContent className="py-12">
-                  <div className="flex flex-col items-center text-muted-foreground">
-                    <FileImage className="h-12 w-12 mb-4 opacity-50" />
-                    <p>Avval mebel turi qo'shing</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-6">
-                {furnitureTypes.map(ft => (
-                  <Card key={ft.id}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <Package className="h-4 w-4" />
-                          {ft.name}
-                        </CardTitle>
-                        <Button size="sm" variant="outline" onClick={() => openDrawingModal(ft.id)}>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Chizma yuklash
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {ft.drawings && ft.drawings.length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {ft.drawings.map(drawing => (
-                            <Card key={drawing.id} className="overflow-hidden">
-                              <div className="aspect-square bg-muted flex items-center justify-center">
-                                {drawing.fileUrl ? (
-                                  <img 
-                                    src={drawing.fileUrl} 
-                                    alt={drawing.fileName}
-                                    className="w-full h-full object-cover"
+                          {/* Details List */}
+                          {category.details.map((detail, detIndex) => (
+                            <Card key={`${detail.name}-${detIndex}`} className="border-2 border-dashed">
+                              <CardContent className="p-4 space-y-4">
+                                {/* Detail Header */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="h-5 w-5 rounded bg-muted text-muted-foreground text-xs font-medium flex items-center justify-center">
+                                      {detIndex + 1}
+                                    </span>
+                                    <span className="font-medium">{detail.name}</span>
+                                    <span className="text-sm text-muted-foreground">{detail.dimensions.length} razmer</span>
+                                    {detail.steps > 0 && (
+                                      <Badge variant="secondary" className="text-xs">{detail.steps} bosqich</Badge>
+                                    )}
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      setCategories(prev => prev.map((cat, i) => {
+                                        if (i !== catIndex) return cat;
+                                        return {
+                                          ...cat,
+                                          details: cat.details.filter((_, di) => di !== detIndex),
+                                          detailsCount: cat.detailsCount - 1,
+                                          dimensionsCount: cat.dimensionsCount - detail.dimensions.length,
+                                        };
+                                      }));
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
+                                </div>
+
+                                {/* Dimensions */}
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground uppercase">Razmerlar</Label>
+                                  {detail.dimensions.map((dim, dimIndex) => (
+                                    <div key={dimIndex} className="flex items-center gap-2">
+                                      <span className="h-6 w-6 rounded bg-primary/10 text-primary text-xs font-medium flex items-center justify-center">
+                                        {dimIndex + 1}
+                                      </span>
+                                      <Input
+                                        type="number"
+                                        value={dim.width || ''}
+                                        onChange={(e) => handleUpdateDimension(catIndex, detIndex, dimIndex, 'width', Number(e.target.value))}
+                                        placeholder="Eni"
+                                        className="w-24 h-8 text-sm"
+                                      />
+                                      <span className="text-muted-foreground">mm</span>
+                                      <span className="text-muted-foreground">x</span>
+                                      <Input
+                                        type="number"
+                                        value={dim.height || ''}
+                                        onChange={(e) => handleUpdateDimension(catIndex, detIndex, dimIndex, 'height', Number(e.target.value))}
+                                        placeholder="Bo'yi"
+                                        className="w-24 h-8 text-sm"
+                                      />
+                                      <span className="text-muted-foreground">mm</span>
+                                      <span className="text-muted-foreground">x</span>
+                                      <Input
+                                        type="number"
+                                        value={dim.thickness || ''}
+                                        onChange={(e) => handleUpdateDimension(catIndex, detIndex, dimIndex, 'thickness', Number(e.target.value))}
+                                        placeholder="Qalinligi"
+                                        className="w-20 h-8 text-sm"
+                                      />
+                                      <span className="text-muted-foreground">mm</span>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => handleRemoveDimension(catIndex, detIndex, dimIndex)}
+                                      >
+                                        <X className="h-4 w-4 text-muted-foreground" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                  
+                                  {/* Add dimension input */}
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Input
+                                      placeholder="300mm x 150mm yoki 300 x 150 x 18 mm"
+                                      className="flex-1 h-8 text-sm"
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          handleAddDimension(catIndex, detIndex);
+                                        }
+                                      }}
+                                    />
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      onClick={() => handleAddDimension(catIndex, detIndex)}
+                                    >
+                                      <Plus className="h-4 w-4 mr-1" />
+                                      Razmer
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Materials */}
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground uppercase">Materiallar</Label>
+                                  <div className="flex flex-wrap gap-2">
+                                    {detail.materials.map((mat, mi) => (
+                                      <Badge 
+                                        key={mi} 
+                                        variant="secondary"
+                                        className="cursor-pointer"
+                                        onClick={() => handleToggleMaterial(catIndex, detIndex, mat)}
+                                      >
+                                        {mat}
+                                        <X className="h-3 w-3 ml-1" />
+                                      </Badge>
+                                    ))}
+                                    <Select onValueChange={(v) => handleToggleMaterial(catIndex, detIndex, v)}>
+                                      <SelectTrigger className="w-[160px] h-7 text-xs">
+                                        <SelectValue placeholder="Material qo'shish..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {AVAILABLE_MATERIALS.filter(m => !detail.materials.includes(m)).map(mat => (
+                                          <SelectItem key={mat} value={mat} className="text-xs">{mat}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+
+                                {/* Notes */}
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground uppercase">Texnik izohlar</Label>
+                                  <Textarea
+                                    value={detail.notes}
+                                    onChange={(e) => handleUpdateNotes(catIndex, detIndex, e.target.value)}
+                                    placeholder="Ko'zgu bilan, ichki yorug'lik..."
+                                    className="text-sm min-h-[60px]"
                                   />
-                                ) : (
-                                  <FileImage className="h-12 w-12 text-muted-foreground" />
-                                )}
-                              </div>
-                              <CardContent className="p-3">
-                                <p className="text-sm font-medium truncate">{drawing.fileName}</p>
-                                {drawing.description && (
-                                  <p className="text-xs text-muted-foreground truncate">{drawing.description}</p>
-                                )}
+                                </div>
                               </CardContent>
                             </Card>
                           ))}
                         </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          Hali chizma yuklanmagan
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Images Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Room Images */}
+          <Card>
+            <CardContent className="p-5">
+              <Label className="text-sm font-medium mb-3 block">Xona rasmlari</Label>
+              <div
+                className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => roomInputRef.current?.click()}
+              >
+                {roomImages.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {roomImages.map((img, i) => (
+                      <img key={i} src={img} alt={`Room ${i + 1}`} className="w-full h-20 object-cover rounded" />
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <ImagePlus className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-primary">Rasm yuklash</p>
+                  </>
+                )}
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+              <input
+                ref={roomInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => handleImageUpload('room', e.target.files)}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Design Images */}
+          <Card>
+            <CardContent className="p-5">
+              <Label className="text-sm font-medium mb-3 block">Dizayn namunalari</Label>
+              <div
+                className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => designInputRef.current?.click()}
+              >
+                {designImages.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {designImages.map((img, i) => (
+                      <img key={i} src={img} alt={`Design ${i + 1}`} className="w-full h-20 object-cover rounded" />
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <ImagePlus className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-primary">Dizayn yuklash</p>
+                  </>
+                )}
+              </div>
+              <input
+                ref={designInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => handleImageUpload('design', e.target.files)}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Activity History */}
+        <Collapsible open={activityOpen} onOpenChange={setActivityOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardContent className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Faoliyat tarixi</span>
+                    <Badge variant="secondary">{1}</Badge>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${activityOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </CardContent>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="border-t p-4">
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 text-sm">
+                    <div className="h-2 w-2 rounded-full bg-primary mt-1.5" />
+                    <div>
+                      <p>Buyurtma yaratildi</p>
+                      <p className="text-xs text-muted-foreground">
+                        {order.createdAt ? format(parseISO(order.createdAt), 'dd.MM.yyyy HH:mm') : '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => navigate('/constructor/orders')}>
+            Bekor qilish
+          </Button>
+          <Button onClick={handleCompleteOrder} className="bg-green-500 hover:bg-green-600">
+            <Check className="h-4 w-4 mr-2" />
+            Razmer tayyor
+          </Button>
+        </div>
       </div>
 
-      {/* Furniture Type Modal */}
-      <Dialog open={ftModalOpen} onOpenChange={setFtModalOpen}>
+      {/* Add Category Modal */}
+      <Dialog open={categoryModalOpen} onOpenChange={setCategoryModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{ftEditId ? "Mebel turini tahrirlash" : "Yangi mebel turi"}</DialogTitle>
+            <DialogTitle>Yangi kategoriya qo'shish</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Nomi</Label>
+              <Label>Kategoriya nomi</Label>
               <Input
-                value={ftName}
-                onChange={(e) => setFtName(e.target.value)}
-                placeholder="Mebel turi nomi"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Masalan: Shkaf-kupe"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFtModalOpen(false)}>
+            <Button variant="outline" onClick={() => setCategoryModalOpen(false)}>
               Bekor qilish
             </Button>
-            <Button onClick={ftEditId ? handleUpdateFT : handleCreateFT} disabled={ftSaving}>
-              {ftSaving ? 'Saqlanmoqda...' : ftEditId ? 'Saqlash' : 'Yaratish'}
+            <Button onClick={handleAddCategory} disabled={savingCategory || !newCategoryName.trim()}>
+              {savingCategory ? 'Saqlanmoqda...' : 'Qo\'shish'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -504,54 +978,19 @@ export const ConstructorOrderDetailPage: React.FC = () => {
       <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Mebel turini o'chirish</AlertDialogTitle>
+            <AlertDialogTitle>O'chirishni tasdiqlang</AlertDialogTitle>
             <AlertDialogDescription>
-              Bu amalni qaytarib bo'lmaydi. Barcha detallar va chizmalar ham o'chiriladi.
+              Bu amalni qaytarib bo'lmaydi. {deleteTarget?.type === 'category' ? 'Barcha detallar ham o\'chiriladi.' : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteFT} disabled={deleting}>
+            <AlertDialogAction onClick={handleDeleteCategory} disabled={deleting}>
               {deleting ? "O'chirilmoqda..." : "O'chirish"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Drawing Upload Modal */}
-      <Dialog open={drawingModalOpen} onOpenChange={setDrawingModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Chizma yuklash</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Fayl</Label>
-              <Input
-                type="file"
-                accept="image/*,.pdf,.dwg"
-                onChange={(e) => setDrawingFile(e.target.files?.[0] || null)}
-              />
-            </div>
-            <div>
-              <Label>Tavsif (ixtiyoriy)</Label>
-              <Textarea
-                value={drawingDescription}
-                onChange={(e) => setDrawingDescription(e.target.value)}
-                placeholder="Chizma haqida qisqacha ma'lumot"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDrawingModalOpen(false)}>
-              Bekor qilish
-            </Button>
-            <Button onClick={handleUploadDrawing} disabled={uploadingDrawing || !drawingFile}>
-              {uploadingDrawing ? 'Yuklanmoqda...' : 'Yuklash'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
