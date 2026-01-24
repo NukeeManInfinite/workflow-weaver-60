@@ -42,7 +42,8 @@ export const AssignCategoriesModal: React.FC<AssignCategoriesModalProps> = ({
   onSuccess,
 }) => {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  // Use string | number for categoryIds to handle both types from API
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<(string | number)[]>([]);
   const [selectedTeamLeaderId, setSelectedTeamLeaderId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
@@ -95,11 +96,17 @@ export const AssignCategoriesModal: React.FC<AssignCategoriesModalProps> = ({
     }
   };
 
-  const handleCategoryToggle = (categoryId: string) => {
+  // Get unique key for category (handles both id and categoryId from API)
+  const getCategoryKey = (category: ProductCategory): string | number => {
+    // API might return categoryId (number) or id (string)
+    return (category as any).categoryId ?? category.id;
+  };
+
+  const handleCategoryToggle = (categoryKey: string | number) => {
     setSelectedCategoryIds(prev => 
-      prev.includes(categoryId)
-        ? prev.filter(id => id !== categoryId)
-        : [...prev, categoryId]
+      prev.includes(categoryKey)
+        ? prev.filter(id => id !== categoryKey)
+        : [...prev, categoryKey]
     );
   };
 
@@ -107,7 +114,7 @@ export const AssignCategoriesModal: React.FC<AssignCategoriesModalProps> = ({
     if (selectedCategoryIds.length === categories.length) {
       setSelectedCategoryIds([]);
     } else {
-      setSelectedCategoryIds(categories.map(c => c.id));
+      setSelectedCategoryIds(categories.map(c => getCategoryKey(c)));
     }
   };
 
@@ -125,12 +132,14 @@ export const AssignCategoriesModal: React.FC<AssignCategoriesModalProps> = ({
     setSubmitting(true);
     try {
       // Create assignments for each selected category
-      const promises = selectedCategoryIds.map(categoryId => 
-        categoryAssignmentService.create({
-          categoryId: parseInt(categoryId, 10),
+      const promises = selectedCategoryIds.map(categoryId => {
+        // Convert to number for API
+        const numericId = typeof categoryId === 'string' ? parseInt(categoryId, 10) : categoryId;
+        return categoryAssignmentService.create({
+          categoryId: numericId,
           teamLeaderId: selectedTeamLeaderId,
-        })
-      );
+        });
+      });
 
       await Promise.all(promises);
 
@@ -224,28 +233,34 @@ export const AssignCategoriesModal: React.FC<AssignCategoriesModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {categories.map((category) => (
-                    <div 
-                      key={category.id}
-                      className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
-                        selectedCategoryIds.includes(category.id) 
-                          ? 'bg-primary/10 border border-primary/20' 
-                          : 'hover:bg-muted'
-                      }`}
-                      onClick={() => handleCategoryToggle(category.id)}
-                    >
-                      <Checkbox 
-                        checked={selectedCategoryIds.includes(category.id)}
-                        disabled={submitting}
-                      />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{category.name}</p>
+                  {categories.map((category, index) => {
+                    const categoryKey = getCategoryKey(category);
+                    const categoryName = (category as any).categoryName ?? category.name ?? 'Noma\'lum';
+                    const categoryStatus = category.status ?? 'Pending';
+                    
+                    return (
+                      <div 
+                        key={`category-${categoryKey}-${index}`}
+                        className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
+                          selectedCategoryIds.includes(categoryKey) 
+                            ? 'bg-primary/10 border border-primary/20' 
+                            : 'hover:bg-muted'
+                        }`}
+                        onClick={() => handleCategoryToggle(categoryKey)}
+                      >
+                        <Checkbox 
+                          checked={selectedCategoryIds.includes(categoryKey)}
+                          disabled={submitting}
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{categoryName}</p>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {categoryStatus}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        {category.status}
-                      </Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>

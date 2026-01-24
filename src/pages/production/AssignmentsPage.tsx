@@ -431,19 +431,27 @@ export const AssignmentsPage: React.FC = () => {
                     </CardContent>
                   </Card>
                 ) : (
-                  filteredOrders.map((order) => {
-                    const unassignedCount = order.categories?.filter(c => !c.assignedTeamLeaderId).length || 0;
+                  filteredOrders.map((order, index) => {
+                    if (!order) return null;
+                    
+                    const orderId = order.id ?? index;
+                    const orderNumber = order.orderNumber ?? 'Noma\'lum';
+                    const customerName = order.customerName ?? '-';
+                    const orderStatus = order.status ?? 'Created';
+                    const categories = Array.isArray(order.categories) ? order.categories : [];
+                    const unassignedCount = categories.filter(c => c && !c.assignedTeamLeaderId).length;
+                    
                     return (
-                      <Card key={order.id} className="hover:shadow-md transition-shadow">
+                      <Card key={`order-${orderId}-${index}`} className="hover:shadow-md transition-shadow">
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between flex-wrap gap-4">
                             <div className="space-y-1 flex-1">
                               <div className="flex items-center gap-2">
-                                <h3 className="font-medium">{order.orderNumber}</h3>
-                                {getOrderStatusBadge(order.status)}
+                                <h3 className="font-medium">{orderNumber}</h3>
+                                {getOrderStatusBadge(orderStatus)}
                               </div>
                               <p className="text-sm text-muted-foreground">
-                                Mijoz: {order.customerName || '-'}
+                                Mijoz: {customerName}
                               </p>
                               <div className="flex items-center gap-2 text-sm">
                                 <Badge variant="outline" className="text-xs">

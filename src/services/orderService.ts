@@ -27,30 +27,80 @@ export const contractService = {
   },
 };
 
+// API response wrapper type
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  errors: string[] | null;
+}
+
 export const orderService = {
   async getAll(): Promise<Order[]> {
-    const response = await apiClient.get<Order[]>('/orders');
-    return response.data;
+    try {
+      const response = await apiClient.get<ApiResponse<Order[]> | Order[]>('/orders');
+      // Handle wrapped response { success, data, ... }
+      if (response.data && typeof response.data === 'object' && 'data' in response.data && 'success' in response.data) {
+        return (response.data as ApiResponse<Order[]>).data || [];
+      }
+      // Handle direct array response
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      return [];
+    }
   },
 
   async getByContractId(contractId: string): Promise<Order[]> {
-    const response = await apiClient.get<Order[]>(`/contracts/${contractId}/orders`);
-    return response.data;
+    try {
+      const response = await apiClient.get<ApiResponse<Order[]> | Order[]>(`/contracts/${contractId}/orders`);
+      if (response.data && typeof response.data === 'object' && 'data' in response.data && 'success' in response.data) {
+        return (response.data as ApiResponse<Order[]>).data || [];
+      }
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error('Error fetching orders by contract:', error);
+      return [];
+    }
   },
 
-  async getById(id: string): Promise<Order> {
-    const response = await apiClient.get<Order>(`/orders/${id}`);
-    return response.data;
+  async getById(id: string): Promise<Order | null> {
+    try {
+      const response = await apiClient.get<ApiResponse<Order> | Order>(`/orders/${id}`);
+      if (response.data && typeof response.data === 'object' && 'data' in response.data && 'success' in response.data) {
+        return (response.data as ApiResponse<Order>).data || null;
+      }
+      return response.data as Order || null;
+    } catch (error) {
+      console.error('Error fetching order:', error);
+      return null;
+    }
   },
 
-  async create(order: Partial<Order>): Promise<Order> {
-    const response = await apiClient.post<Order>('/orders', order);
-    return response.data;
+  async create(order: Partial<Order>): Promise<Order | null> {
+    try {
+      const response = await apiClient.post<ApiResponse<Order> | Order>('/orders', order);
+      if (response.data && typeof response.data === 'object' && 'data' in response.data && 'success' in response.data) {
+        return (response.data as ApiResponse<Order>).data || null;
+      }
+      return response.data as Order || null;
+    } catch (error) {
+      console.error('Error creating order:', error);
+      throw error;
+    }
   },
 
-  async update(id: string, order: Partial<Order>): Promise<Order> {
-    const response = await apiClient.put<Order>(`/orders/${id}`, order);
-    return response.data;
+  async update(id: string, order: Partial<Order>): Promise<Order | null> {
+    try {
+      const response = await apiClient.put<ApiResponse<Order> | Order>(`/orders/${id}`, order);
+      if (response.data && typeof response.data === 'object' && 'data' in response.data && 'success' in response.data) {
+        return (response.data as ApiResponse<Order>).data || null;
+      }
+      return response.data as Order || null;
+    } catch (error) {
+      console.error('Error updating order:', error);
+      throw error;
+    }
   },
 
   async delete(id: string): Promise<void> {
@@ -59,9 +109,19 @@ export const orderService = {
 };
 
 export const categoryService = {
-  async getByOrderId(orderId: string): Promise<ProductCategory[]> {
-    const response = await apiClient.get<ProductCategory[]>(`/orders/${orderId}/categories`);
-    return response.data;
+  async getByOrderId(orderId: string | number): Promise<ProductCategory[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<ProductCategory[]> | ProductCategory[]>(`/orders/${orderId}/categories`);
+      // Handle wrapped response
+      if (response.data && typeof response.data === 'object' && 'data' in response.data && 'success' in response.data) {
+        return (response.data as ApiResponse<ProductCategory[]>).data || [];
+      }
+      // Handle direct array response
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error('Error fetching categories by order:', error);
+      return [];
+    }
   },
 
   async getById(id: string): Promise<ProductCategory> {
