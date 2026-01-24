@@ -42,33 +42,8 @@ export interface TeamLeader {
   phone?: string;
 }
 
-export interface CategoryForAssignment {
-  id: number;
-  name: string;
-  orderId: number;
-  orderNumber: string;
-  customerName: string;
-  isAssigned: boolean;
-}
-
-// Order for assignment (from /api/Orders)
-export interface OrderForAssignment {
-  id: string;
-  orderNumber: string;
-  customerName: string;
-  customerPhone?: string;
-  status: string;
-  totalAmount: number;
-  categoryNames?: string[] | string;
-  createdAt: string;
-  constructorName?: string;
-  productionManagerName?: string;
-}
-
-export interface CreateOrderAssignmentDto {
-  orderId: number;
-  teamLeaderId: number;
-}
+// Note: CategoryForAssignment and OrderForAssignment types removed
+// The page now uses only /api/category-assignments as the single source of truth
 
 export const categoryAssignmentService = {
   // Get all category assignments
@@ -185,30 +160,38 @@ export const categoryAssignmentService = {
     }
   },
 
-  // Get categories available for assignment
-  async getCategoriesForAssignment(): Promise<CategoryForAssignment[]> {
-    try {
-      const response = await apiClient.get<{ success: boolean; data: CategoryForAssignment[] }>('/Categories/for-assignment');
-      return response.data.data || [];
-    } catch (error) {
-      console.error('Error fetching categories for assignment:', error);
-      return [];
-    }
+  // REMOVED: getCategoriesForAssignment - endpoint doesn't exist
+  // REMOVED: getOrdersForAssignment - using assignments as single source of truth
+
+  // Get pending assignments (not yet started)
+  getPendingAssignments(assignments: CategoryAssignment[]): CategoryAssignment[] {
+    if (!assignments || !Array.isArray(assignments)) return [];
+    return assignments.filter(a => a?.status === 'Pending');
   },
 
-  // Get orders for assignment (from /api/Orders)
-  async getOrdersForAssignment(): Promise<OrderForAssignment[]> {
-    try {
-      const response = await apiClient.get<{ success: boolean; data: { items: OrderForAssignment[] } }>('/Orders');
-      return response.data.data?.items || [];
-    } catch (error) {
-      console.error('Error fetching orders for assignment:', error);
-      return [];
-    }
+  // Get in-progress assignments
+  getInProgressAssignments(assignments: CategoryAssignment[]): CategoryAssignment[] {
+    if (!assignments || !Array.isArray(assignments)) return [];
+    return assignments.filter(a => a?.status === 'InProgress');
   },
 
-  // Create assignment for order
-  async createOrderAssignment(dto: CreateOrderAssignmentDto): Promise<CategoryAssignment | null> {
+  // Get completed assignments
+  getCompletedAssignments(assignments: CategoryAssignment[]): CategoryAssignment[] {
+    if (!assignments || !Array.isArray(assignments)) return [];
+    return assignments.filter(a => a?.status === 'Completed');
+  },
+
+  // Get unique team leaders from assignments
+  getUniqueTeamLeaderIds(assignments: CategoryAssignment[]): number[] {
+    if (!assignments || !Array.isArray(assignments)) return [];
+    const ids = new Set<number>();
+    assignments.forEach(a => {
+      if (a?.teamLeaderId) ids.add(a.teamLeaderId);
+    });
+    return Array.from(ids);
+  },
+  // Create assignment for order (uses existing CreateAssignmentDto)
+  async createOrderAssignment(dto: CreateAssignmentDto): Promise<CategoryAssignment | null> {
     try {
       const response = await apiClient.post<{ success: boolean; data: CategoryAssignment }>('/category-assignments', dto);
       return response.data.data || null;
