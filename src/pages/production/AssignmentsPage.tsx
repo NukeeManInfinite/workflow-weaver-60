@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppHeader } from '@/components/layout';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -15,7 +15,9 @@ import {
   Clock,
   AlertCircle,
   Package,
-  ClipboardList
+  ClipboardList,
+  MoreHorizontal,
+  Eye
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,6 +32,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   categoryAssignmentService, 
@@ -97,14 +113,10 @@ export const AssignmentsPage: React.FC = () => {
     return assignments.filter(a => a?.status === 'InProgress' || a?.status === 'Pending');
   }, [assignments]);
 
-  // Filter orders that have unassigned categories
-  const ordersWithUnassignedCategories = useMemo(() => {
+  // All orders (not filtering - show all like All Orders page)
+  const allOrders = useMemo(() => {
     if (!orders || !Array.isArray(orders)) return [];
-    // Orders that have categories and at least one is not assigned
-    return orders.filter(order => {
-      if (!order.categories || order.categories.length === 0) return false;
-      return order.categories.some(cat => !cat.assignedTeamLeaderId);
-    });
+    return orders;
   }, [orders]);
 
   const fetchData = async () => {
@@ -285,18 +297,19 @@ export const AssignmentsPage: React.FC = () => {
   }, [activeAssignments, searchTerm]);
 
   const filteredOrders = useMemo(() => {
-    if (!ordersWithUnassignedCategories || ordersWithUnassignedCategories.length === 0) return [];
-    if (!searchTerm) return ordersWithUnassignedCategories;
+    if (!allOrders || allOrders.length === 0) return [];
+    if (!searchTerm) return allOrders;
     
     const term = searchTerm.toLowerCase();
-    return ordersWithUnassignedCategories.filter((order) => {
+    return allOrders.filter((order) => {
       if (!order) return false;
       return (
         (order.orderNumber?.toLowerCase() || '').includes(term) ||
-        (order.customerName?.toLowerCase() || '').includes(term)
+        (order.customerName?.toLowerCase() || '').includes(term) ||
+        (order.contractNumber?.toLowerCase() || '').includes(term)
       );
     });
-  }, [ordersWithUnassignedCategories, searchTerm]);
+  }, [allOrders, searchTerm]);
 
   return (
     <div className="min-h-screen">
@@ -408,70 +421,116 @@ export const AssignmentsPage: React.FC = () => {
                 </TabsTrigger>
               </TabsList>
 
-              {/* Orders Tab - List of orders to assign */}
-              <TabsContent value="orders" className="space-y-4 mt-4">
-                <h2 className="text-lg font-semibold">Tayinlash uchun Buyurtmalar</h2>
-                
-                {loadingOrders ? (
-                  Array(3).fill(0).map((_, i) => (
-                    <Card key={i}>
-                      <CardContent className="p-4">
-                        <Skeleton className="h-16 w-full" />
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : filteredOrders.length === 0 ? (
-                  <Card>
-                    <CardContent className="p-8 text-center">
-                      <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Buyurtmalar Mavjud Emas</h3>
-                      <p className="text-muted-foreground">
-                        Hozirda tayinlash uchun kategoriyalarga ega buyurtmalar yo'q.
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  filteredOrders.map((order, index) => {
-                    if (!order) return null;
-                    
-                    const orderId = order.id ?? index;
-                    const orderNumber = order.orderNumber ?? 'Noma\'lum';
-                    const customerName = order.customerName ?? '-';
-                    const orderStatus = order.status ?? 'Created';
-                    const categories = Array.isArray(order.categories) ? order.categories : [];
-                    const unassignedCount = categories.filter(c => c && !c.assignedTeamLeaderId).length;
-                    
-                    return (
-                      <Card key={`order-${orderId}-${index}`} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between flex-wrap gap-4">
-                            <div className="space-y-1 flex-1">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-medium">{orderNumber}</h3>
-                                {getOrderStatusBadge(orderStatus)}
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                Mijoz: {customerName}
-                              </p>
-                              <div className="flex items-center gap-2 text-sm">
-                                <Badge variant="outline" className="text-xs">
-                                  {unassignedCount} kategoriya tayinlanmagan
-                                </Badge>
-                              </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              onClick={() => handleOpenAssignModal(order)}
-                            >
-                              <UserCheck className="h-4 w-4 mr-2" />
-                              Tayinlash
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })
-                )}
+              {/* Orders Tab - Table view like All Orders page */}
+              <TabsContent value="orders" className="mt-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold">Barcha Buyurtmalar</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingOrders ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Buyurtma #</TableHead>
+                            <TableHead>Shartnoma #</TableHead>
+                            <TableHead>Mijoz</TableHead>
+                            <TableHead>Kategoriyalar</TableHead>
+                            <TableHead>Summa</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Yaratilgan</TableHead>
+                            <TableHead className="w-[80px]">Amallar</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {[...Array(5)].map((_, i) => (
+                            <TableRow key={i}>
+                              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                              <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                              <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : filteredOrders.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium mb-2">Buyurtmalar Mavjud Emas</h3>
+                        <p className="text-muted-foreground">
+                          Hozirda buyurtmalar yo'q.
+                        </p>
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Buyurtma #</TableHead>
+                            <TableHead>Shartnoma #</TableHead>
+                            <TableHead>Mijoz</TableHead>
+                            <TableHead>Kategoriyalar</TableHead>
+                            <TableHead>Summa</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Yaratilgan</TableHead>
+                            <TableHead className="w-[80px]">Amallar</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredOrders.map((order, index) => {
+                            if (!order) return null;
+                            
+                            const orderId = order.id ?? index;
+                            const orderNumber = order.orderNumber ?? '-';
+                            const contractNumber = order.contractNumber ?? '-';
+                            const customerName = order.customerName ?? '-';
+                            const orderStatus = order.status ?? 'Created';
+                            const totalAmount = order.totalAmount ?? 0;
+                            const createdAt = order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-';
+                            
+                            // Format category names from categories array
+                            const categories = Array.isArray(order.categories) ? order.categories : [];
+                            const categoryDisplay = categories.length > 0
+                              ? categories.map(c => c?.name || 'Noma\'lum').join(', ')
+                              : '-';
+                            
+                            return (
+                              <TableRow key={`order-${orderId}-${index}`}>
+                                <TableCell className="font-medium">{orderNumber}</TableCell>
+                                <TableCell className="text-muted-foreground">{contractNumber}</TableCell>
+                                <TableCell>{customerName}</TableCell>
+                                <TableCell className="max-w-[200px] truncate" title={categoryDisplay}>
+                                  {categoryDisplay}
+                                </TableCell>
+                                <TableCell>${totalAmount.toLocaleString()}</TableCell>
+                                <TableCell>{getOrderStatusBadge(orderStatus)}</TableCell>
+                                <TableCell>{createdAt}</TableCell>
+                                <TableCell>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => handleOpenAssignModal(order)}>
+                                        <UserCheck className="mr-2 h-4 w-4" />
+                                        Jamoa Rahbariga Tayinlash
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               {/* Pending Assignments Tab */}
