@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -32,11 +33,13 @@ interface EmployeeFormModalProps {
 export interface EmployeeFormData {
   fullName: string;
   phone: string;
-  email: string;
+  username: string;
   password?: string;
+  role: string;
   positionId: number;
   departmentId: number;
   isActive: boolean;
+  forcePasswordChange: boolean;
 }
 
 export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
@@ -54,11 +57,13 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
   const [formData, setFormData] = useState<EmployeeFormData>({
     fullName: '',
     phone: '',
-    email: '',
+    username: '',
     password: '',
+    role: 'Employee',
     positionId: 2, // Default: Employee
     departmentId: 0,
     isActive: true,
+    forcePasswordChange: true,
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof EmployeeFormData, string>>>({});
@@ -70,20 +75,25 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
         setFormData({
           fullName: employee.fullName || '',
           phone: employee.phone || '',
-          email: '',
+          username: '',
+          password: '',
+          role: employee.positionId === 1 ? 'TeamLeader' : 'Employee',
           positionId: employee.positionId || 2,
           departmentId: employee.departmentId || 0,
           isActive: employee.isActive ?? true,
+          forcePasswordChange: true,
         });
       } else {
         setFormData({
           fullName: '',
           phone: '',
-          email: '',
+          username: '',
           password: '',
+          role: 'Employee',
           positionId: 2,
           departmentId: 0,
           isActive: true,
+          forcePasswordChange: true,
         });
       }
       setErrors({});
@@ -120,14 +130,16 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
     }
 
     if (!isEditMode) {
-      if (!formData.email.trim()) {
-        newErrors.email = 'Email is required';
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-        newErrors.email = 'Invalid email format';
+      if (!formData.username.trim()) {
+        newErrors.username = 'Username is required';
       }
 
       if (!formData.password || formData.password.length < 6) {
         newErrors.password = 'Password must be at least 6 characters';
+      }
+
+      if (!formData.role) {
+        newErrors.role = 'Role is required';
       }
     }
 
@@ -163,6 +175,19 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  // Sync role with positionId
+  const handlePositionChange = (value: string) => {
+    const positionId = parseInt(value);
+    const role = positionId === 1 ? 'TeamLeader' : 'Employee';
+    setFormData({ ...formData, positionId, role });
+  };
+
+  // Sync positionId with role
+  const handleRoleChange = (value: string) => {
+    const positionId = value === 'TeamLeader' ? 1 : 2;
+    setFormData({ ...formData, role: value, positionId });
   };
 
   return (
@@ -206,17 +231,16 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
           {!isEditMode && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
+                <Label htmlFor="username">Username *</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="employee@example.com"
-                  className={errors.email ? 'border-destructive' : ''}
+                  id="username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  placeholder="Enter username"
+                  className={errors.username ? 'border-destructive' : ''}
                 />
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email}</p>
+                {errors.username && (
+                  <p className="text-sm text-destructive">{errors.username}</p>
                 )}
               </div>
 
@@ -238,13 +262,13 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="role">Role *</Label>
+            <Label htmlFor="position">Position *</Label>
             <Select
               value={formData.positionId.toString()}
-              onValueChange={(value) => setFormData({ ...formData, positionId: parseInt(value) })}
+              onValueChange={handlePositionChange}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select role" />
+                <SelectValue placeholder="Select position" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="1">Team Leader</SelectItem>
@@ -252,6 +276,28 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
               </SelectContent>
             </Select>
           </div>
+
+          {!isEditMode && (
+            <div className="space-y-2">
+              <Label htmlFor="role">Role *</Label>
+              <Select
+                value={formData.role}
+                onValueChange={handleRoleChange}
+              >
+                <SelectTrigger className={errors.role ? 'border-destructive' : ''}>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Employee">Employee</SelectItem>
+                  <SelectItem value="TeamLeader">Team Leader</SelectItem>
+                  <SelectItem value="ProductionManager">Production Manager</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.role && (
+                <p className="text-sm text-destructive">{errors.role}</p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="department">Department *</Label>
@@ -276,21 +322,38 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select
-              value={formData.isActive ? 'active' : 'inactive'}
-              onValueChange={(value) => setFormData({ ...formData, isActive: value === 'active' })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {isEditMode && (
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.isActive ? 'active' : 'inactive'}
+                onValueChange={(value) => setFormData({ ...formData, isActive: value === 'active' })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {!isEditMode && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="forcePasswordChange"
+                checked={formData.forcePasswordChange}
+                onCheckedChange={(checked) => 
+                  setFormData({ ...formData, forcePasswordChange: checked === true })
+                }
+              />
+              <Label htmlFor="forcePasswordChange" className="text-sm font-normal cursor-pointer">
+                Force password change on first login
+              </Label>
+            </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
