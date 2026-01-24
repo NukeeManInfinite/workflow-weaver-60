@@ -13,7 +13,9 @@ import {
   CheckCircle2, 
   Trash2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Package,
+  Calendar
 } from 'lucide-react';
 import {
   Select,
@@ -24,6 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -40,12 +43,16 @@ import {
   CategoryAssignment, 
   TeamLeader, 
   AssignmentStats,
-  CategoryForAssignment 
+  CategoryForAssignment,
+  OrderForAssignment
 } from '@/services/categoryAssignmentService';
+import { notificationService } from '@/services/notificationService';
+import { format } from 'date-fns';
 
 export const AssignmentsPage: React.FC = () => {
   const [assignments, setAssignments] = useState<CategoryAssignment[]>([]);
   const [categoriesForAssignment, setCategoriesForAssignment] = useState<CategoryForAssignment[]>([]);
+  const [ordersForAssignment, setOrdersForAssignment] = useState<OrderForAssignment[]>([]);
   const [teamLeaders, setTeamLeaders] = useState<TeamLeader[]>([]);
   const [stats, setStats] = useState<AssignmentStats>({
     pendingAssignments: 0,
@@ -56,22 +63,37 @@ export const AssignmentsPage: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Multi-select state for orders
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [selectedTeamLeaderId, setSelectedTeamLeaderId] = useState<number | null>(null);
+  const [assigningOrders, setAssigningOrders] = useState(false);
+  
+  // Single category assignment state (legacy)
   const [selectedLeaders, setSelectedLeaders] = useState<Record<number, number>>({});
   const [assigningId, setAssigningId] = useState<number | null>(null);
+  
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [assignmentsData, categoriesData, teamLeadersData] = await Promise.all([
+      const [assignmentsData, categoriesData, ordersData, teamLeadersData] = await Promise.all([
         categoryAssignmentService.getAll(),
         categoryAssignmentService.getCategoriesForAssignment(),
+        categoryAssignmentService.getOrdersForAssignment(),
         categoryAssignmentService.getTeamLeaders(),
       ]);
       
       setAssignments(assignmentsData);
       setCategoriesForAssignment(categoriesData.filter(c => !c.isAssigned));
+      
+      // Filter orders that are not already assigned
+      const assignedOrderIds = new Set(assignmentsData.map(a => a.orderId.toString()));
+      const unassignedOrders = ordersData.filter(o => !assignedOrderIds.has(o.id));
+      setOrdersForAssignment(unassignedOrders);
+      
       setTeamLeaders(teamLeadersData);
       setStats(categoryAssignmentService.calculateStats(assignmentsData, teamLeadersData));
     } catch (error) {
@@ -89,6 +111,76 @@ export const AssignmentsPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Toggle order selection
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  // Select all orders
+  const toggleSelectAll = () => {
+    if (selectedOrderIds.size === filteredOrders.length) {
+      setSelectedOrderIds(new Set());
+    } else {
+      setSelectedOrderIds(new Set(filteredOrders.map(o => o.id)));
+    }
+  };
+
+  // Assign selected orders to team leader
+  const handleAssignOrders = async () => {
+    if (!selectedTeamLeaderId || selectedOrderIds.size === 0) {
+      toast({
+        title: 'Xatolik',
+        description: 'Iltimos, buyurtmalar va jamoa rahbarini tanlang',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setAssigningOrders(true);
+    try {
+      const selectedOrders = ordersForAssignment.filter(o => selectedOrderIds.has(o.id));
+      const orderNumbers: string[] = [];
+      
+      // Create assignments for each selected order
+      for (const order of selectedOrders) {
+        await categoryAssignmentService.createOrderAssignment({
+          orderId: parseInt(order.id),
+          teamLeaderId: selectedTeamLeaderId,
+        });
+        orderNumbers.push(order.orderNumber);
+      }
+      
+      // Send notification to team leader
+      await notificationService.sendAssignmentNotification(selectedTeamLeaderId, orderNumbers);
+      
+      toast({
+        title: 'Muvaffaqiyat',
+        description: `${selectedOrderIds.size} ta buyurtma muvaffaqiyatli tayinlandi`,
+      });
+      
+      // Clear selections and refresh
+      setSelectedOrderIds(new Set());
+      setSelectedTeamLeaderId(null);
+      await fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Xatolik',
+        description: error?.response?.data?.message || 'Buyurtmalarni tayinlashda xatolik',
+        variant: 'destructive',
+      });
+    } finally {
+      setAssigningOrders(false);
+    }
+  };
 
   const handleAssign = async (categoryId: number) => {
     const teamLeaderId = selectedLeaders[categoryId];
@@ -205,10 +297,30 @@ export const AssignmentsPage: React.FC = () => {
     }
   };
 
+  const getOrderStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Created':
+        return <Badge variant="outline" className="bg-warning/10 text-warning">Yaratilgan</Badge>;
+      case 'InProgress':
+        return <Badge variant="outline" className="bg-info/10 text-info">Jarayonda</Badge>;
+      case 'Completed':
+        return <Badge variant="outline" className="bg-success/10 text-success">Yakunlangan</Badge>;
+      case 'Cancelled':
+        return <Badge variant="outline" className="bg-destructive/10 text-destructive">Bekor qilingan</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
   const filteredCategories = categoriesForAssignment.filter((category) =>
     category.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     category.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     category.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredOrders = ordersForAssignment.filter((order) =>
+    order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredAssignments = assignments.filter((assignment) =>
@@ -216,6 +328,9 @@ export const AssignmentsPage: React.FC = () => {
     assignment.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     assignment.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Combine categories and orders for display
+  const hasItemsToAssign = filteredCategories.length > 0 || filteredOrders.length > 0;
 
   return (
     <div className="min-h-screen">
@@ -294,7 +409,7 @@ export const AssignmentsPage: React.FC = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Kategoriyalarni qidirish..." 
+              placeholder="Buyurtmalarni qidirish..." 
               className="pl-9" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -304,9 +419,68 @@ export const AssignmentsPage: React.FC = () => {
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Categories to Assign */}
+          {/* Orders & Categories to Assign */}
           <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-lg font-semibold">Tayinlash uchun Kategoriyalar</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Tayinlash uchun Buyurtmalar</h2>
+              {filteredOrders.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">
+                    {selectedOrderIds.size} / {filteredOrders.length} tanlangan
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleSelectAll}
+                  >
+                    {selectedOrderIds.size === filteredOrders.length ? 'Bekor qilish' : 'Hammasini tanlash'}
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            {/* Assignment action bar - show when orders are selected */}
+            {selectedOrderIds.size > 0 && (
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-3">
+                      <Badge variant="secondary" className="text-sm">
+                        {selectedOrderIds.size} ta buyurtma tanlandi
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Select
+                        value={selectedTeamLeaderId?.toString() || ''}
+                        onValueChange={(value) => setSelectedTeamLeaderId(parseInt(value))}
+                      >
+                        <SelectTrigger className="w-56 bg-background">
+                          <SelectValue placeholder="Jamoa rahbarini tanlang" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          {teamLeaders.map((leader) => (
+                            <SelectItem key={leader.id} value={leader.id.toString()}>
+                              {leader.fullName} ({leader.activeAssignments} aktiv)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button 
+                        onClick={handleAssignOrders}
+                        disabled={assigningOrders || !selectedTeamLeaderId}
+                      >
+                        {assigningOrders ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <UserCheck className="mr-2 h-4 w-4" />
+                        )}
+                        Tayinlash
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             
             {loading ? (
               Array(3).fill(0).map((_, i) => (
@@ -316,67 +490,130 @@ export const AssignmentsPage: React.FC = () => {
                   </CardContent>
                 </Card>
               ))
-            ) : filteredCategories.length === 0 ? (
+            ) : !hasItemsToAssign ? (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Kategoriyalar Mavjud Emas</h3>
+                  <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Buyurtmalar Mavjud Emas</h3>
                   <p className="text-muted-foreground">
-                    Hozirda tayinlash uchun kategoriyalar yo'q.
+                    Hozirda tayinlash uchun buyurtmalar yo'q.
                   </p>
                 </CardContent>
               </Card>
             ) : (
-              filteredCategories.map((category) => (
-                <Card key={category.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{category.name}</h3>
-                          <Badge variant="outline" className="bg-warning/10 text-warning">
-                            Tayinlanmagan
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {category.orderNumber} • {category.customerName}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Select
-                          value={selectedLeaders[category.id]?.toString() || ''}
-                          onValueChange={(value) => 
-                            setSelectedLeaders(prev => ({ ...prev, [category.id]: parseInt(value) }))
-                          }
-                        >
-                          <SelectTrigger className="w-48 bg-background">
-                            <SelectValue placeholder="Rahbar tanlang" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background z-50">
-                            {teamLeaders.map((leader) => (
-                              <SelectItem key={leader.id} value={leader.id.toString()}>
-                                {leader.fullName} ({leader.activeAssignments} aktiv)
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button 
-                          size="sm"
-                          onClick={() => handleAssign(category.id)}
-                          disabled={assigningId === category.id || !selectedLeaders[category.id]}
-                        >
-                          {assigningId === category.id ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <UserCheck className="mr-2 h-4 w-4" />
+              <>
+                {/* Orders list with checkboxes */}
+                {filteredOrders.map((order) => (
+                  <Card 
+                    key={order.id} 
+                    className={`cursor-pointer transition-colors ${
+                      selectedOrderIds.has(order.id) ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-muted/50'
+                    }`}
+                    onClick={() => toggleOrderSelection(order.id)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <Checkbox 
+                          checked={selectedOrderIds.has(order.id)}
+                          onCheckedChange={() => toggleOrderSelection(order.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium">{order.orderNumber}</h3>
+                              {getOrderStatusBadge(order.status)}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Calendar className="h-4 w-4" />
+                              {format(new Date(order.createdAt), 'dd.MM.yyyy')}
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Mijoz: <span className="text-foreground">{order.customerName}</span>
+                          </p>
+                          {order.categoryNames && (
+                            <p className="text-sm text-muted-foreground">
+                              Kategoriyalar: <span className="text-foreground">
+                                {Array.isArray(order.categoryNames) 
+                                  ? order.categoryNames.join(', ') 
+                                  : order.categoryNames}
+                              </span>
+                            </p>
                           )}
-                          Tayinlash
-                        </Button>
+                          {(order.constructorName || order.productionManagerName) && (
+                            <div className="flex gap-4 text-sm">
+                              {order.constructorName && (
+                                <span className="text-muted-foreground">
+                                  Konstruktor: <span className="text-foreground">{order.constructorName}</span>
+                                </span>
+                              )}
+                              {order.productionManagerName && (
+                                <span className="text-muted-foreground">
+                                  PM: <span className="text-foreground">{order.productionManagerName}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {/* Legacy categories if any */}
+                {filteredCategories.map((category) => (
+                  <Card key={category.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium">{category.name}</h3>
+                            <Badge variant="outline" className="bg-warning/10 text-warning">
+                              Tayinlanmagan
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {category.orderNumber} • {category.customerName}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Select
+                            value={selectedLeaders[category.id]?.toString() || ''}
+                            onValueChange={(value) => 
+                              setSelectedLeaders(prev => ({ ...prev, [category.id]: parseInt(value) }))
+                            }
+                          >
+                            <SelectTrigger className="w-48 bg-background">
+                              <SelectValue placeholder="Rahbar tanlang" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background z-50">
+                              {teamLeaders.map((leader) => (
+                                <SelectItem key={leader.id} value={leader.id.toString()}>
+                                  {leader.fullName} ({leader.activeAssignments} aktiv)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button 
+                            size="sm"
+                            onClick={() => handleAssign(category.id)}
+                            disabled={assigningId === category.id || !selectedLeaders[category.id]}
+                          >
+                            {assigningId === category.id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <UserCheck className="mr-2 h-4 w-4" />
+                            )}
+                            Tayinlash
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
             )}
 
             {/* Active Assignments */}
@@ -407,7 +644,7 @@ export const AssignmentsPage: React.FC = () => {
                     <div className="flex items-center justify-between flex-wrap gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{assignment.categoryName}</h3>
+                          <h3 className="font-medium">{assignment.categoryName || assignment.orderNumber}</h3>
                           {getStatusBadge(assignment.status)}
                         </div>
                         <p className="text-sm text-muted-foreground">
@@ -495,7 +732,12 @@ export const AssignmentsPage: React.FC = () => {
                   teamLeaders.map((leader, index) => (
                     <div 
                       key={leader.id}
-                      className={`flex items-center justify-between p-4 ${index !== teamLeaders.length - 1 ? 'border-b' : ''}`}
+                      className={`flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors ${
+                        selectedTeamLeaderId === leader.id ? 'bg-primary/10' : ''
+                      } ${index !== teamLeaders.length - 1 ? 'border-b' : ''}`}
+                      onClick={() => setSelectedTeamLeaderId(
+                        selectedTeamLeaderId === leader.id ? null : leader.id
+                      )}
                     >
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">

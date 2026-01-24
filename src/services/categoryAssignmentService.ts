@@ -51,6 +51,25 @@ export interface CategoryForAssignment {
   isAssigned: boolean;
 }
 
+// Order for assignment (from /api/Orders)
+export interface OrderForAssignment {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  customerPhone?: string;
+  status: string;
+  totalAmount: number;
+  categoryNames?: string[] | string;
+  createdAt: string;
+  constructorName?: string;
+  productionManagerName?: string;
+}
+
+export interface CreateOrderAssignmentDto {
+  orderId: number;
+  teamLeaderId: number;
+}
+
 export const categoryAssignmentService = {
   // Get all category assignments
   async getAll(): Promise<CategoryAssignment[]> {
@@ -174,6 +193,28 @@ export const categoryAssignmentService = {
     } catch (error) {
       console.error('Error fetching categories for assignment:', error);
       return [];
+    }
+  },
+
+  // Get orders for assignment (from /api/Orders)
+  async getOrdersForAssignment(): Promise<OrderForAssignment[]> {
+    try {
+      const response = await apiClient.get<{ success: boolean; data: { items: OrderForAssignment[] } }>('/Orders');
+      return response.data.data?.items || [];
+    } catch (error) {
+      console.error('Error fetching orders for assignment:', error);
+      return [];
+    }
+  },
+
+  // Create assignment for order
+  async createOrderAssignment(dto: CreateOrderAssignmentDto): Promise<CategoryAssignment | null> {
+    try {
+      const response = await apiClient.post<{ success: boolean; data: CategoryAssignment }>('/category-assignments', dto);
+      return response.data.data || null;
+    } catch (error) {
+      console.error('Error creating order assignment:', error);
+      throw error;
     }
   },
 
