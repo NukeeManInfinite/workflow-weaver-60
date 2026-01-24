@@ -82,9 +82,8 @@ export const DetailsPage: React.FC = () => {
     material: '',
     width: 0,
     height: 0,
-    depth: 0,
+    thickness: 0,
     quantity: 1,
-    unit: 'dona',
     notes: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -180,9 +179,8 @@ export const DetailsPage: React.FC = () => {
         material: formData.material,
         width: formData.width,
         height: formData.height,
-        depth: formData.depth,
+        thickness: formData.thickness,
         quantity: formData.quantity,
-        unit: formData.unit,
         notes: formData.notes,
       };
       await constructorService.updateDetail(selectedItem.id, updateDto);
@@ -235,9 +233,8 @@ export const DetailsPage: React.FC = () => {
       material: '',
       width: 0,
       height: 0,
-      depth: 0,
+      thickness: 0,
       quantity: 1,
-      unit: 'dona',
       notes: '',
     });
   };
@@ -250,9 +247,8 @@ export const DetailsPage: React.FC = () => {
       material: item.material,
       width: item.width,
       height: item.height,
-      depth: item.depth,
+      thickness: item.thickness,
       quantity: item.quantity,
-      unit: item.unit,
       notes: item.notes || '',
     });
     setEditModalOpen(true);
@@ -380,9 +376,9 @@ export const DetailsPage: React.FC = () => {
                       </TableCell>
                       <TableCell>{item.material || '-'}</TableCell>
                       <TableCell>
-                        {item.width} x {item.height} x {item.depth} mm
+                        {item.width} x {item.height} x {item.thickness} mm
                       </TableCell>
-                      <TableCell>{item.quantity} {item.unit}</TableCell>
+                      <TableCell>{item.quantity}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -487,41 +483,22 @@ export const DetailsPage: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Chuqurlik (mm)</Label>
+                <Label>Qalinlik (mm)</Label>
                 <Input
                   type="number"
-                  value={formData.depth}
-                  onChange={(e) => setFormData({ ...formData, depth: Number(e.target.value) })}
+                  value={formData.thickness}
+                  onChange={(e) => setFormData({ ...formData, thickness: Number(e.target.value) })}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Miqdori</Label>
-                <Input
-                  type="number"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
-                  min={1}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Birlik</Label>
-                <Select
-                  value={formData.unit}
-                  onValueChange={(val) => setFormData({ ...formData, unit: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dona">dona</SelectItem>
-                    <SelectItem value="m">metr</SelectItem>
-                    <SelectItem value="m2">m²</SelectItem>
-                    <SelectItem value="kg">kg</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>Miqdori</Label>
+              <Input
+                type="number"
+                value={formData.quantity}
+                onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
+                min={1}
+              />
             </div>
             <div className="space-y-2">
               <Label>Izoh</Label>
@@ -585,41 +562,22 @@ export const DetailsPage: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Chuqurlik (mm)</Label>
+                <Label>Qalinlik (mm)</Label>
                 <Input
                   type="number"
-                  value={formData.depth}
-                  onChange={(e) => setFormData({ ...formData, depth: Number(e.target.value) })}
+                  value={formData.thickness}
+                  onChange={(e) => setFormData({ ...formData, thickness: Number(e.target.value) })}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Miqdori</Label>
-                <Input
-                  type="number"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
-                  min={1}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Birlik</Label>
-                <Select
-                  value={formData.unit}
-                  onValueChange={(val) => setFormData({ ...formData, unit: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dona">dona</SelectItem>
-                    <SelectItem value="m">metr</SelectItem>
-                    <SelectItem value="m2">m²</SelectItem>
-                    <SelectItem value="kg">kg</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>Miqdori</Label>
+              <Input
+                type="number"
+                value={formData.quantity}
+                onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
+                min={1}
+              />
             </div>
             <div className="space-y-2">
               <Label>Izoh</Label>
