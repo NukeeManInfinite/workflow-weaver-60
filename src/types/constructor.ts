@@ -21,9 +21,9 @@ export interface Detail {
   material: string;
   width: number;
   height: number;
-  depth: number;
+  thickness: number;
   quantity: number;
-  unit: string;
+  unit?: string;
   notes?: string;
   createdAt: string;
   updatedAt?: string;
@@ -94,9 +94,8 @@ export interface CreateDetailDto {
   material: string;
   width: number;
   height: number;
-  depth: number;
+  thickness: number;
   quantity: number;
-  unit: string;
   notes?: string;
 }
 
@@ -105,9 +104,8 @@ export interface UpdateDetailDto {
   material?: string;
   width?: number;
   height?: number;
-  depth?: number;
+  thickness?: number;
   quantity?: number;
-  unit?: string;
   notes?: string;
 }
 

@@ -132,9 +132,8 @@ export const FurnitureTypeDetailPage: React.FC = () => {
       material: detail.material,
       width: detail.width,
       height: detail.height,
-      depth: detail.depth,
+      thickness: detail.thickness,
       quantity: detail.quantity,
-      unit: detail.unit,
       notes: detail.notes,
     });
     setDetailModalOpen(true);
@@ -471,7 +470,7 @@ export const FurnitureTypeDetailPage: React.FC = () => {
                 {isOwner && !furnitureType.isCompleted && (
                   <Button onClick={() => {
                     setEditingDetail(null);
-                    setDetailForm({ furnitureTypeId: Number(id), quantity: 1, unit: 'dona' });
+                    setDetailForm({ furnitureTypeId: Number(id), quantity: 1 });
                     setDetailModalOpen(true);
                   }}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -502,10 +501,10 @@ export const FurnitureTypeDetailPage: React.FC = () => {
                           <TableCell className="font-medium">{detail.name}</TableCell>
                           <TableCell>{detail.material}</TableCell>
                           <TableCell>
-                            {detail.width} × {detail.height} × {detail.depth}
+                            {detail.width} × {detail.height} × {detail.thickness}
                           </TableCell>
                           <TableCell>
-                            {detail.quantity} {detail.unit}
+                            {detail.quantity}
                           </TableCell>
                           <TableCell className="text-right">
                             {isOwner && !furnitureType.isCompleted && (
@@ -726,25 +725,18 @@ export const FurnitureTypeDetailPage: React.FC = () => {
                 <Label>Qalinligi (mm)</Label>
                 <Input
                   type="number"
-                  value={detailForm.depth || ''}
-                  onChange={(e) => setDetailForm({ ...detailForm, depth: Number(e.target.value) })}
+                  value={detailForm.thickness || ''}
+                  onChange={(e) => setDetailForm({ ...detailForm, thickness: Number(e.target.value) })}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-2">
               <div>
                 <Label>Miqdor</Label>
                 <Input
                   type="number"
                   value={detailForm.quantity || 1}
                   onChange={(e) => setDetailForm({ ...detailForm, quantity: Number(e.target.value) })}
-                />
-              </div>
-              <div>
-                <Label>Birlik</Label>
-                <Input
-                  value={detailForm.unit || 'dona'}
-                  onChange={(e) => setDetailForm({ ...detailForm, unit: e.target.value })}
                 />
               </div>
             </div>

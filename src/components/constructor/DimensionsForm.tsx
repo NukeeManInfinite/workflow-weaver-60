@@ -26,14 +26,12 @@ interface DimensionRow {
   material: string;
   width: number;
   height: number;
-  depth: number;
+  thickness: number;
   quantity: number;
-  unit: string;
   isNew?: boolean;
   isEditing?: boolean;
 }
 
-const UNITS = ['mm', 'cm', 'm', 'dona'];
 const MATERIALS = ['MDF', 'DSP', 'Yog\'och', 'Metall', 'Shisha', 'Plastik'];
 
 export const DimensionsForm: React.FC<DimensionsFormProps> = ({
@@ -61,9 +59,8 @@ export const DimensionsForm: React.FC<DimensionsFormProps> = ({
           material: d.material,
           width: d.width,
           height: d.height,
-          depth: d.depth,
+          thickness: d.thickness,
           quantity: d.quantity,
-          unit: d.unit,
         }))
       );
     } catch (error) {
@@ -81,9 +78,8 @@ export const DimensionsForm: React.FC<DimensionsFormProps> = ({
         material: 'MDF',
         width: 0,
         height: 0,
-        depth: 0,
+        thickness: 0,
         quantity: 1,
-        unit: 'mm',
         isNew: true,
         isEditing: true,
       },
@@ -131,7 +127,7 @@ export const DimensionsForm: React.FC<DimensionsFormProps> = ({
       return;
     }
     
-    if (detail.width <= 0 || detail.height <= 0 || detail.depth <= 0) {
+    if (detail.width <= 0 || detail.height <= 0 || detail.thickness <= 0) {
       toast({
         title: 'Xatolik',
         description: "O'lchamlar 0 dan katta bo'lishi kerak",
@@ -158,9 +154,8 @@ export const DimensionsForm: React.FC<DimensionsFormProps> = ({
           material: detail.material,
           width: detail.width,
           height: detail.height,
-          depth: detail.depth,
+          thickness: detail.thickness,
           quantity: detail.quantity,
-          unit: detail.unit,
         });
       } else {
         await constructorService.updateDetail(detail.id, {
@@ -168,9 +163,8 @@ export const DimensionsForm: React.FC<DimensionsFormProps> = ({
           material: detail.material,
           width: detail.width,
           height: detail.height,
-          depth: detail.depth,
+          thickness: detail.thickness,
           quantity: detail.quantity,
-          unit: detail.unit,
         });
       }
 
@@ -280,34 +274,15 @@ export const DimensionsForm: React.FC<DimensionsFormProps> = ({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Chuqurligi (D)</Label>
+                  <Label className="text-xs">Qalinligi (T)</Label>
                   <Input
                     type="number"
-                    value={detail.depth}
-                    onChange={(e) => updateRow(index, 'depth', Number(e.target.value))}
+                    value={detail.thickness}
+                    onChange={(e) => updateRow(index, 'thickness', Number(e.target.value))}
                     min={0}
                     disabled={disabled}
                     className="h-8 text-sm"
                   />
-                </div>
-                <div>
-                  <Label className="text-xs">Birlik</Label>
-                  <Select
-                    value={detail.unit}
-                    onValueChange={(v) => updateRow(index, 'unit', v)}
-                    disabled={disabled}
-                  >
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {UNITS.map((u) => (
-                        <SelectItem key={u} value={u}>
-                          {u}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
 
