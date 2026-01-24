@@ -89,29 +89,23 @@ export const ConstructorOrdersPage: React.FC = () => {
     setLoading(true);
     try {
       const data = await constructorService.getOrders();
+      console.log('Constructor orders response:', data);
       
-      // DEFENSIVE FILTERING: Only show orders assigned to current constructor
-      const filteredData = (data || []).filter(order => {
-        const isAssignedToMe = 
-          order.constructorId === Number(user?.id) ||
-          order.constructorName?.toLowerCase().includes(user?.firstName?.toLowerCase() || '') ||
-          order.constructorName?.toLowerCase().includes(user?.lastName?.toLowerCase() || '');
-        
-        return isAssignedToMe;
-      });
-      
-      setOrders(filteredData);
+      // Backend already filters by current constructor, just ensure array
+      const ordersArray = Array.isArray(data) ? data : [];
+      setOrders(ordersArray);
     } catch (error: any) {
       console.error('Failed to load orders:', error);
       toast({
         title: 'Xatolik',
-        description: 'Buyurtmalarni yuklashda xatolik yuz berdi',
+        description: error?.response?.data?.message || 'Buyurtmalarni yuklashda xatolik yuz berdi',
         variant: 'destructive',
       });
+      setOrders([]);
     } finally {
       setLoading(false);
     }
-  }, [toast, user]);
+  }, [toast]);
 
   useEffect(() => {
     loadOrders();
