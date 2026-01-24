@@ -41,25 +41,13 @@ export const navigationConfig: NavItem[] = [
     title: 'Orders',
     href: '/orders',
     icon: ShoppingCart,
-    roles: ['Seller', 'Director', 'Constructor', 'ProductionManager'],
+    roles: ['Seller', 'Director', 'ProductionManager'],
   },
   // Constructor
   {
-    title: 'Mebel turlari',
-    href: '/constructor/furniture-types',
-    icon: Package,
-    roles: ['Constructor'],
-  },
-  {
-    title: 'Detallar',
-    href: '/constructor/details',
-    icon: Ruler,
-    roles: ['Constructor'],
-  },
-  {
-    title: 'Chizmalar',
-    href: '/constructor/drawings',
-    icon: FileText,
+    title: 'Buyurtmalar',
+    href: '/constructor/orders',
+    icon: ShoppingCart,
     roles: ['Constructor'],
   },
   // Production Manager

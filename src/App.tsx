@@ -10,7 +10,7 @@ import { LoginPage, UnauthorizedPage } from "@/pages/auth";
 import { DashboardPage } from "@/pages/dashboard";
 import { KPIDashboardPage } from "@/pages/kpi";
 import { ContractsPage, OrdersPage } from "@/pages/seller";
-import { ConstructorDashboard, ConstructorOrdersPage, FurnitureTypesPage, FurnitureTypeDetailPage, DetailsPage, DrawingsPage, TechnicalSpecsPage } from '@/pages/constructor';
+import { ConstructorDashboard, ConstructorOrdersPage, ConstructorOrderDetailPage, FurnitureTypesPage, FurnitureTypeDetailPage, DetailsPage, DrawingsPage, TechnicalSpecsPage } from '@/pages/constructor';
 import { EmployeesPage, AssignmentsPage } from "@/pages/production";
 import { TasksPage } from "@/pages/teamleader";
 import { MyTasksPage, MyKPIPage } from "@/pages/employee";
@@ -40,7 +40,7 @@ const App = () => (
               <Route path="/seller/orders" element={<ProtectedRoute allowedRoles={['Seller', 'Director', 'Constructor', 'ProductionManager']}><OrdersPage /></ProtectedRoute>} />
               <Route path="/constructor" element={<ProtectedRoute allowedRoles={['Constructor']}><ConstructorDashboard /></ProtectedRoute>} />
               <Route path="/constructor/orders" element={<ProtectedRoute allowedRoles={['Constructor']}><ConstructorOrdersPage /></ProtectedRoute>} />
-              <Route path="/constructor/orders/:id" element={<ProtectedRoute allowedRoles={['Constructor']}><ConstructorOrdersPage /></ProtectedRoute>} />
+              <Route path="/constructor/orders/:id" element={<ProtectedRoute allowedRoles={['Constructor']}><ConstructorOrderDetailPage /></ProtectedRoute>} />
               <Route path="/constructor/furniture-types" element={<ProtectedRoute allowedRoles={['Constructor']}><FurnitureTypesPage /></ProtectedRoute>} />
               <Route path="/constructor/furniture-types/:id" element={<ProtectedRoute allowedRoles={['Constructor']}><FurnitureTypeDetailPage /></ProtectedRoute>} />
               <Route path="/constructor/details" element={<ProtectedRoute allowedRoles={['Constructor']}><DetailsPage /></ProtectedRoute>} />

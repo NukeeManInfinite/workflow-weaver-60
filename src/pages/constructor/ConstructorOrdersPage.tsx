@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,24 +10,78 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { constructorService } from '@/services/constructorService';
 import { ConstructorOrder } from '@/types/constructor';
-import { OrderCard } from '@/components/constructor';
 import {
   Search,
-  RefreshCw,
-  ClipboardList,
-  Package,
   Clock,
-  CheckCircle2,
-  AlertCircle,
+  Tag,
+  CheckCircle,
+  RotateCcw,
+  AlertTriangle,
+  Image as ImageIcon,
 } from 'lucide-react';
+import { format, differenceInDays, parseISO } from 'date-fns';
+
+type StatusFilter = 'all' | 'waiting' | 'inProgress' | 'returned' | 'completed' | 'delayed';
+
+const getStatusInfo = (status: string, deadline?: string) => {
+  const isDelayed = deadline ? differenceInDays(new Date(), parseISO(deadline)) > 0 : false;
+  
+  const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
+    Created: { label: 'Kutilmoqda', variant: 'outline', color: 'text-muted-foreground' },
+    Assigned: { label: 'Kutilmoqda', variant: 'outline', color: 'text-muted-foreground' },
+    InProgress: { label: 'Jarayonda', variant: 'default', color: 'text-primary' },
+    RequiresRemeasurement: { label: 'Qayta o\'lchov', variant: 'destructive', color: 'text-destructive' },
+    SentToWarehouse: { label: 'Razmer tayyor', variant: 'secondary', color: 'text-success' },
+    Completed: { label: 'Tayyor', variant: 'secondary', color: 'text-success' },
+    Returned: { label: 'Qaytarilgan', variant: 'destructive', color: 'text-warning' },
+  };
+  
+  return statusMap[status] || statusMap.Created;
+};
+
+const getDeadlineInfo = (deadline?: string) => {
+  if (!deadline) return null;
+  
+  const deadlineDate = parseISO(deadline);
+  const daysLeft = differenceInDays(deadlineDate, new Date());
+  
+  if (daysLeft < 0) {
+    return { text: `${Math.abs(daysLeft)} kun kechikdi`, color: 'text-destructive', isDelayed: true };
+  } else if (daysLeft === 0) {
+    return { text: 'Bugun', color: 'text-warning', isDelayed: false };
+  } else if (daysLeft <= 3) {
+    return { text: `${daysLeft} kun qoldi`, color: 'text-warning', isDelayed: false };
+  }
+  return { text: format(deadlineDate, 'dd/MM/yyyy'), color: 'text-muted-foreground', isDelayed: false };
+};
+
+const getActionButton = (status: string) => {
+  switch (status) {
+    case 'Created':
+    case 'Assigned':
+      return { label: 'Ishni boshlash', color: 'bg-primary hover:bg-primary/90' };
+    case 'InProgress':
+      return { label: 'Davom ettirish', color: 'bg-success hover:bg-success/90' };
+    case 'RequiresRemeasurement':
+      return { label: 'Qayta o\'lchov', color: 'bg-destructive hover:bg-destructive/90' };
+    case 'SentToWarehouse':
+      return { label: 'Tahrirlash', color: 'bg-info hover:bg-info/90' };
+    case 'Returned':
+      return { label: 'Davom ettirish', color: 'bg-success hover:bg-success/90' };
+    default:
+      return { label: 'Davom ettirish', color: 'bg-primary hover:bg-primary/90' };
+  }
+};
 
 export const ConstructorOrdersPage: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [orders, setOrders] = useState<ConstructorOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -35,7 +90,6 @@ export const ConstructorOrdersPage: React.FC = () => {
       
       // DEFENSIVE FILTERING: Only show orders assigned to current constructor
       const filteredData = (data || []).filter(order => {
-        // Check if order is assigned to current user
         const isAssignedToMe = 
           order.constructorId === Number(user?.id) ||
           order.constructorName?.toLowerCase().includes(user?.firstName?.toLowerCase() || '') ||
@@ -61,171 +115,282 @@ export const ConstructorOrdersPage: React.FC = () => {
     loadOrders();
   }, [loadOrders]);
 
-  const filteredOrders = orders.filter(order => {
-    const search = searchTerm.toLowerCase();
-    return (
-      order.orderNumber?.toLowerCase().includes(search) ||
-      order.customerName?.toLowerCase().includes(search) ||
-      order.contractNumber?.toLowerCase().includes(search)
-    );
-  });
+  // Filter orders based on search and status
+  const getFilteredOrders = () => {
+    let filtered = orders.filter(order => {
+      const search = searchTerm.toLowerCase();
+      return (
+        order.orderNumber?.toLowerCase().includes(search) ||
+        order.customerName?.toLowerCase().includes(search) ||
+        order.contractNumber?.toLowerCase().includes(search)
+      );
+    });
 
-  const stats = {
-    total: orders.length,
-    inProgress: orders.filter(o => o.status === 'InProgress' || o.status === 'Assigned').length,
-    completed: orders.filter(o => o.status === 'Completed').length,
-    pending: orders.filter(o => o.status === 'Created' || o.status === 'Assigned').length,
-  };
-
-  const handleCategoryComplete = async (furnitureTypeId: number) => {
-    try {
-      await constructorService.completeFurnitureType(furnitureTypeId);
-      toast({
-        title: 'Muvaffaqiyat',
-        description: 'Kategoriya ishlab chiqarishga yuborildi',
-      });
-      loadOrders();
-    } catch (error) {
-      toast({
-        title: 'Xatolik',
-        description: 'Kategoriyani tugatishda xatolik',
-        variant: 'destructive',
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(order => {
+        const deadlineInfo = getDeadlineInfo((order as any).deadline);
+        switch (statusFilter) {
+          case 'waiting':
+            return order.status === 'Created' || order.status === 'Assigned';
+          case 'inProgress':
+            return order.status === 'InProgress';
+          case 'returned':
+            return order.status === 'Returned' || order.status === 'RequiresRemeasurement';
+          case 'completed':
+            return order.status === 'Completed' || order.status === 'SentToWarehouse';
+          case 'delayed':
+            return deadlineInfo?.isDelayed;
+          default:
+            return true;
+        }
       });
     }
+
+    return filtered;
+  };
+
+  const filteredOrders = getFilteredOrders();
+
+  // Calculate stats
+  const stats = {
+    waiting: orders.filter(o => o.status === 'Created' || o.status === 'Assigned').length,
+    inProgress: orders.filter(o => o.status === 'InProgress').length,
+    completed: orders.filter(o => o.status === 'Completed' || o.status === 'SentToWarehouse').length,
+    returned: orders.filter(o => o.status === 'Returned' || o.status === 'RequiresRemeasurement').length,
+    delayed: orders.filter(o => {
+      const deadline = (o as any).deadline;
+      return deadline && differenceInDays(new Date(), parseISO(deadline)) > 0;
+    }).length,
+  };
+
+  const statusTabs = [
+    { key: 'all', label: 'Hammasi', count: orders.length },
+    { key: 'waiting', label: 'Kutilmoqda', count: stats.waiting, icon: Clock },
+    { key: 'inProgress', label: 'Jarayonda', count: stats.inProgress, icon: Tag },
+    { key: 'returned', label: 'Qaytarilgan', count: stats.returned, icon: RotateCcw },
+    { key: 'completed', label: 'Tayyor', count: stats.completed, icon: CheckCircle },
+  ];
+
+  const handleOrderClick = (orderId: number) => {
+    navigate(`/constructor/orders/${orderId}`);
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <AppHeader
-        title="Mening buyurtmalarim"
-        description="Sizga tayinlangan buyurtmalar va kategoriyalar"
+        title="Konstruktor"
+        description="Buyurtmalar uchun razmerlar va materiallarni kiriting"
       />
 
       <div className="p-6 space-y-6 animate-fade-in">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <Card className="border-l-4 border-l-muted-foreground">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Clock className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <div className="text-2xl font-bold">{stats.total}</div>
-                  <div className="text-sm text-muted-foreground">Jami buyurtmalar</div>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Package className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-warning/5 to-warning/10 border-warning/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-warning">{stats.pending}</div>
+                  <div className="text-2xl font-bold">{stats.waiting}</div>
                   <div className="text-sm text-muted-foreground">Kutilmoqda</div>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center">
-                  <AlertCircle className="h-5 w-5 text-warning" />
-                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-info/5 to-info/10 border-info/20">
+          <Card className="border-l-4 border-l-primary">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Tag className="h-5 w-5 text-primary" />
                 <div>
-                  <div className="text-2xl font-bold text-info">{stats.inProgress}</div>
+                  <div className="text-2xl font-bold">{stats.inProgress}</div>
                   <div className="text-sm text-muted-foreground">Jarayonda</div>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-info/10 flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-info" />
-                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-success/5 to-success/10 border-success/20">
+          <Card className="border-l-4 border-l-success">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-success" />
                 <div>
-                  <div className="text-2xl font-bold text-success">{stats.completed}</div>
-                  <div className="text-sm text-muted-foreground">Tugatilgan</div>
+                  <div className="text-2xl font-bold">{stats.completed}</div>
+                  <div className="text-sm text-muted-foreground">Tayyor</div>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-success/10 flex items-center justify-center">
-                  <CheckCircle2 className="h-5 w-5 text-success" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-warning">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <RotateCcw className="h-5 w-5 text-warning" />
+                <div>
+                  <div className="text-2xl font-bold">{stats.returned}</div>
+                  <div className="text-sm text-muted-foreground">Qaytarilgan</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-destructive">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <div>
+                  <div className="text-2xl font-bold">{stats.delayed}</div>
+                  <div className="text-sm text-muted-foreground">Kechikkan</div>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search & Refresh */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="flex gap-2 flex-1 max-w-md">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buyurtma yoki mijoz qidirish..."
-                className="pl-9"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+        {/* Search & Tabs */}
+        <div className="flex flex-col gap-4">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buyurtma, mijoz yoki kategoriya qidirish..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <Button variant="outline" onClick={loadOrders} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Yangilash
-          </Button>
+
+          <div className="flex flex-wrap gap-2">
+            {statusTabs.map(tab => (
+              <Button
+                key={tab.key}
+                variant={statusFilter === tab.key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter(tab.key as StatusFilter)}
+                className="gap-2"
+              >
+                {tab.icon && <tab.icon className="h-4 w-4" />}
+                {tab.label}
+                <Badge variant="secondary" className="ml-1 bg-background/50">
+                  {tab.count}
+                </Badge>
+              </Button>
+            ))}
+          </div>
         </div>
 
-        {/* Orders List */}
-        <div className="space-y-4">
-          {loading ? (
-            // Loading skeletons
-            Array.from({ length: 3 }).map((_, i) => (
+        {/* Order Cards Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i}>
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <div className="flex-1 space-y-3">
-                      <Skeleton className="h-5 w-48" />
-                      <Skeleton className="h-4 w-full max-w-md" />
-                      <Skeleton className="h-4 w-32" />
-                    </div>
+                <CardContent className="p-5">
+                  <div className="space-y-3">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-4 w-32" />
                     <Skeleton className="h-6 w-24" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                    <Skeleton className="h-10 w-full" />
                   </div>
                 </CardContent>
               </Card>
-            ))
-          ) : filteredOrders.length === 0 ? (
-            // Empty state
-            <Card>
-              <CardContent className="py-16">
-                <div className="flex flex-col items-center text-muted-foreground">
-                  <ClipboardList className="h-16 w-16 mb-4 opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">Buyurtmalar topilmadi</h3>
-                  <p className="text-sm text-center max-w-sm">
-                    {searchTerm
-                      ? "Qidiruv bo'yicha hech narsa topilmadi. Boshqa kalit so'z bilan urinib ko'ring."
-                      : "Sizga hali hech qanday buyurtma tayinlanmagan."}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            // Order cards
-            filteredOrders.map(order => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                onCategoryComplete={handleCategoryComplete}
-                onRefresh={loadOrders}
-              />
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <Card>
+            <CardContent className="py-16">
+              <div className="flex flex-col items-center text-muted-foreground">
+                <Tag className="h-16 w-16 mb-4 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">Buyurtmalar topilmadi</h3>
+                <p className="text-sm text-center max-w-sm">
+                  {searchTerm
+                    ? "Qidiruv bo'yicha hech narsa topilmadi."
+                    : "Sizga hali hech qanday buyurtma tayinlanmagan."}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredOrders.map(order => {
+              const statusInfo = getStatusInfo(order.status, (order as any).deadline);
+              const deadlineInfo = getDeadlineInfo((order as any).deadline);
+              const actionButton = getActionButton(order.status);
+              const furnitureCount = order.furnitureTypes?.length || 0;
+              const drawingsCount = order.furnitureTypes?.reduce((acc, ft) => acc + (ft.drawingsCount || 0), 0) || 0;
+              const completedCount = order.furnitureTypes?.filter(ft => ft.isCompleted).length || 0;
+              const categoryName = order.furnitureTypes?.[0]?.name || 'Kategoriya';
+
+              return (
+                <Card 
+                  key={order.id} 
+                  className="hover:shadow-md transition-shadow border"
+                >
+                  <CardContent className="p-5">
+                    <div className="space-y-4">
+                      {/* Header */}
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-primary font-semibold text-lg">
+                            #{order.orderNumber?.split('-').pop() || order.id}
+                          </span>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            {order.customerName}
+                          </p>
+                        </div>
+                        <Badge variant={statusInfo.variant} className="shrink-0">
+                          {statusInfo.label}
+                        </Badge>
+                      </div>
+
+                      {/* Category Badge */}
+                      <Badge variant="outline" className="rounded-md">
+                        {categoryName}
+                      </Badge>
+
+                      {/* Details */}
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Mebel turlari:</span>
+                          <span className="font-medium">{furnitureCount} ta</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Rasmlar:</span>
+                          <span className="font-medium flex items-center gap-1">
+                            <ImageIcon className="h-3 w-3" /> {drawingsCount} ta
+                          </span>
+                        </div>
+                        {deadlineInfo && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Deadline:</span>
+                            <span className={`font-medium ${deadlineInfo.color}`}>
+                              {deadlineInfo.text}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Bajarildi</span>
+                          <span className="font-medium">{completedCount}/{furnitureCount}</span>
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <Button 
+                        className={`w-full ${actionButton.color} text-white`}
+                        onClick={() => handleOrderClick(order.id)}
+                      >
+                        <Tag className="h-4 w-4 mr-2" />
+                        {actionButton.label}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ export { DimensionsPage } from './DimensionsPage';
 export { MaterialRequestsPage } from './MaterialRequestsPage';
 export { ConstructorDashboard } from './ConstructorDashboard';
 export { ConstructorOrdersPage } from './ConstructorOrdersPage';
+export { ConstructorOrderDetailPage } from './ConstructorOrderDetailPage';
 export { FurnitureTypesPage } from './FurnitureTypesPage';
 export { FurnitureTypeDetailPage } from './FurnitureTypeDetailPage';
 export { DetailsPage } from './DetailsPage';
