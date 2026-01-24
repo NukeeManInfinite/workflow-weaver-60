@@ -45,12 +45,6 @@ export const navigationConfig: NavItem[] = [
   },
   // Constructor
   {
-    title: 'Buyurtmalar',
-    href: '/constructor/orders',
-    icon: ClipboardList,
-    roles: ['Constructor'],
-  },
-  {
     title: 'Mebel turlari',
     href: '/constructor/furniture-types',
     icon: Package,
