@@ -123,13 +123,15 @@ export const DrawingsPage: React.FC = () => {
   };
 
   // Check if user owns the furniture type
+  // Since /users/furniture-types returns only the current user's furniture types,
+  // we check if the furniture type exists in our list
   const isOwner = (drawing: Drawing) => {
     const ft = furnitureTypes.find(f => f.id === drawing.furnitureTypeId);
-    return ft?.constructorId === Number(user?.id);
+    return ft !== undefined;
   };
 
-  // Only show furniture types owned by current user
-  const ownedFurnitureTypes = furnitureTypes.filter(ft => ft.constructorId === Number(user?.id));
+  // All furniture types from /users/furniture-types are owned by current user
+  const ownedFurnitureTypes = furnitureTypes;
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';

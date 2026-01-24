@@ -129,13 +129,15 @@ export const DetailsPage: React.FC = () => {
   };
 
   // Check if user owns the furniture type
+  // Since /users/furniture-types returns only the current user's furniture types,
+  // we check if the furniture type exists in our list
   const isOwner = (detail: Detail) => {
     const ft = furnitureTypes.find(f => f.id === detail.furnitureTypeId);
-    return ft?.constructorId === Number(user?.id);
+    return ft !== undefined;
   };
 
-  // Only show furniture types owned by current user for create/edit
-  const ownedFurnitureTypes = furnitureTypes.filter(ft => ft.constructorId === Number(user?.id));
+  // All furniture types from /users/furniture-types are owned by current user
+  const ownedFurnitureTypes = furnitureTypes;
 
   const handleCreate = async () => {
     if (!formData.name.trim() || !formData.furnitureTypeId) {
