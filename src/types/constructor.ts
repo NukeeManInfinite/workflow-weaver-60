@@ -80,7 +80,7 @@ export interface FurnitureTypeSummary {
 // DTOs for create/update operations
 export interface CreateFurnitureTypeDto {
   name: string;
-  description?: string;
+  orderId: number;
 }
 
 export interface UpdateFurnitureTypeDto {

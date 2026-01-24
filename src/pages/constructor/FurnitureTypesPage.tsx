@@ -40,11 +40,17 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { constructorService } from '@/services/constructorService';
-import { FurnitureType, CreateFurnitureTypeDto, UpdateFurnitureTypeDto } from '@/types/constructor';
+import { FurnitureType, CreateFurnitureTypeDto, UpdateFurnitureTypeDto, ConstructorOrder } from '@/types/constructor';
 import {
   Search,
   Plus,
@@ -68,6 +74,7 @@ export const FurnitureTypesPage: React.FC = () => {
   const { user } = useAuth();
 
   const [furnitureTypes, setFurnitureTypes] = useState<FurnitureType[]>([]);
+  const [orders, setOrders] = useState<ConstructorOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -76,14 +83,18 @@ export const FurnitureTypesPage: React.FC = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<FurnitureType | null>(null);
-  const [formData, setFormData] = useState<CreateFurnitureTypeDto>({ name: '', description: '' });
+  const [formData, setFormData] = useState<CreateFurnitureTypeDto>({ name: '', orderId: 0 });
   const [submitting, setSubmitting] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await constructorService.getFurnitureTypes();
-      setFurnitureTypes(data || []);
+      const [furnitureData, ordersData] = await Promise.all([
+        constructorService.getFurnitureTypes(),
+        constructorService.getOrders(),
+      ]);
+      setFurnitureTypes(furnitureData || []);
+      setOrders(ordersData || []);
     } catch (error: any) {
       console.error('Failed to load furniture types:', error);
       toast({
@@ -128,6 +139,15 @@ export const FurnitureTypesPage: React.FC = () => {
       });
       return;
     }
+    
+    if (!formData.orderId || formData.orderId === 0) {
+      toast({
+        title: 'Xatolik',
+        description: 'Buyurtmani tanlang',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -137,7 +157,7 @@ export const FurnitureTypesPage: React.FC = () => {
         description: 'Mebel turi yaratildi',
       });
       setCreateModalOpen(false);
-      setFormData({ name: '', description: '' });
+      setFormData({ name: '', orderId: 0 });
       loadData();
     } catch (error: any) {
       toast({
@@ -200,7 +220,7 @@ export const FurnitureTypesPage: React.FC = () => {
 
   const openEditModal = (item: FurnitureType) => {
     setSelectedItem(item);
-    setFormData({ name: item.name, description: item.description || '' });
+    setFormData({ name: item.name, orderId: 0 });
     setEditModalOpen(true);
   };
 
@@ -415,14 +435,22 @@ export const FurnitureTypesPage: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Tavsif</Label>
-              <Textarea
-                id="description"
-                value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Qo'shimcha ma'lumot"
-                rows={3}
-              />
+              <Label htmlFor="orderId">Buyurtma *</Label>
+              <Select
+                value={formData.orderId ? formData.orderId.toString() : ''}
+                onValueChange={(value) => setFormData({ ...formData, orderId: Number(value) })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Buyurtmani tanlang" />
+                </SelectTrigger>
+                <SelectContent>
+                  {orders.map((order) => (
+                    <SelectItem key={order.id} value={order.id.toString()}>
+                      {order.orderNumber} - {order.customerName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -452,13 +480,22 @@ export const FurnitureTypesPage: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-description">Tavsif</Label>
-              <Textarea
-                id="edit-description"
-                value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-              />
+              <Label htmlFor="edit-orderId">Buyurtma</Label>
+              <Select
+                value={formData.orderId ? formData.orderId.toString() : ''}
+                onValueChange={(value) => setFormData({ ...formData, orderId: Number(value) })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Buyurtmani tanlang" />
+                </SelectTrigger>
+                <SelectContent>
+                  {orders.map((order) => (
+                    <SelectItem key={order.id} value={order.id.toString()}>
+                      {order.orderNumber} - {order.customerName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

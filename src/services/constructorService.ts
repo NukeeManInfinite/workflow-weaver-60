@@ -44,12 +44,12 @@ export const constructorService = {
 
   // ============ FURNITURE TYPES ============
   async getFurnitureTypes(): Promise<FurnitureType[]> {
-    const response = await apiClient.get('/Constructor/furniture-types');
+    const response = await apiClient.get('/users/furniture-types');
     return extractData<FurnitureType[]>(response);
   },
 
   async getFurnitureTypeById(id: number): Promise<FurnitureType> {
-    const response = await apiClient.get(`/Constructor/furniture-types/${id}`);
+    const response = await apiClient.get(`/users/furniture-types/${id}`);
     return extractData<FurnitureType>(response);
   },
 
