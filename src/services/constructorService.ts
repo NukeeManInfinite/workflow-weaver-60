@@ -147,6 +147,25 @@ export const constructorService = {
     await apiClient.post(`/Constructor/complete/${furnitureTypeId}`);
   },
 
+  // Complete furniture type with data - saves details and notes, then marks complete
+  async completeFurnitureTypeWithData(
+    furnitureTypeId: number,
+    data: {
+      details: Array<{
+        name: string;
+        width: number;
+        height: number;
+        thickness: number;
+        quantity: number;
+        material: string;
+        notes?: string;
+      }>;
+      notes: string;
+    }
+  ): Promise<void> {
+    await apiClient.post(`/Constructor/complete-with-data/${furnitureTypeId}`, data);
+  },
+
   // ============ STATS ============
   async getStats(): Promise<ConstructorStats> {
     try {

@@ -460,17 +460,45 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     }
   };
 
-  // Complete order
+  // Complete order - use the new completeFurnitureTypeWithData endpoint
   const handleCompleteOrder = async () => {
-    // Find all furniture type IDs and mark them complete
+    // For each category, collect all details and send to backend
     for (const cat of categories) {
       try {
-        await constructorService.completeFurnitureType(cat.id);
+        // Convert details to the format expected by the backend
+        const detailsPayload = cat.details.flatMap(detail => 
+          detail.dimensions.map(dim => ({
+            name: detail.name,
+            width: dim.width,
+            height: dim.height,
+            thickness: dim.thickness,
+            quantity: 1,
+            material: detail.materials.join(', ') || 'MDF',
+            notes: detail.notes || '',
+          }))
+        );
+
+        // Collect all notes from details
+        const allNotes = cat.details
+          .map(d => d.notes)
+          .filter(Boolean)
+          .join('\n') || 'Texnik xususiyatlar';
+
+        await constructorService.completeFurnitureTypeWithData(cat.id, {
+          details: detailsPayload,
+          notes: allNotes,
+        });
       } catch (error) {
         console.error('Failed to complete category:', cat.id, error);
+        toast({
+          title: 'Xatolik',
+          description: `Kategoriya ${cat.name} ni saqlashda xatolik`,
+          variant: 'destructive',
+        });
+        return; // Stop if any category fails
       }
     }
-    toast({ title: 'Muvaffaqiyat', description: 'Razmer tayyor deb belgilandi' });
+    toast({ title: 'Muvaffaqiyat', description: 'Mebel turi to\'ldirildi!' });
     navigate('/constructor/orders');
   };
 
