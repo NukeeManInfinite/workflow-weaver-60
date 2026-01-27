@@ -241,22 +241,56 @@ export const FurnitureTypeDetailPage: React.FC = () => {
   };
 
   const canComplete = () => {
-    return (
-      (furnitureType?.details?.length || 0) > 0 &&
-      (furnitureType?.drawings?.length || 0) > 0 &&
-      specifications.trim() !== '' &&
-      materialList.trim() !== ''
-    );
+    const hasDetails = (detailForm.name && detailForm.material) || (furnitureType?.details?.length || 0) > 0;
+    return hasDetails && specifications.trim() !== '';
   };
 
   const handleComplete = async () => {
     setCompleting(true);
     try {
-      // Save spec first
-      await handleSaveSpec();
-      // Then mark complete
-      await constructorService.completeFurnitureType(Number(id));
-      toast({ title: 'Muvaffaqiyat', description: 'Mebel turi tugallandi!' });
+      // Collect all details to save - both from form and existing
+      const detailsToSave: Array<{
+        name: string;
+        width: number;
+        height: number;
+        thickness: number;
+        quantity: number;
+        material: string;
+        notes?: string;
+      }> = [];
+
+      // Add current form data if filled
+      if (detailForm.name && detailForm.material) {
+        detailsToSave.push({
+          name: detailForm.name,
+          width: detailForm.width || 0,
+          height: detailForm.height || 0,
+          thickness: detailForm.thickness || 0,
+          quantity: detailForm.quantity || 1,
+          material: detailForm.material,
+          notes: detailForm.notes,
+        });
+      }
+
+      // Add existing details that haven't been saved yet
+      furnitureType?.details?.forEach(detail => {
+        detailsToSave.push({
+          name: detail.name,
+          width: detail.width,
+          height: detail.height,
+          thickness: detail.thickness,
+          quantity: detail.quantity,
+          material: detail.material,
+          notes: detail.notes,
+        });
+      });
+
+      await constructorService.completeFurnitureTypeWithData(Number(id), {
+        details: detailsToSave,
+        notes: specifications || 'No additional notes',
+      });
+
+      toast({ title: 'Muvaffaqiyat', description: "Mebel turi va barcha ma'lumotlar saqlandi!" });
       setCompleteModalOpen(false);
       navigate('/constructor/furniture-types');
     } catch (error: any) {
