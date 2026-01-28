@@ -11,7 +11,7 @@ import { DashboardPage } from "@/pages/dashboard";
 import { KPIDashboardPage } from "@/pages/kpi";
 import { ContractsPage, OrdersPage } from "@/pages/seller";
 import { ConstructorDashboard, ConstructorOrdersPage, ConstructorOrderDetailPage, FurnitureTypesPage, FurnitureTypeDetailPage, DetailsPage, DrawingsPage, TechnicalSpecsPage } from '@/pages/constructor';
-import { EmployeesPage, AssignmentsPage } from "@/pages/production";
+import { EmployeesPage, AssignmentsPage, TemplatesPage } from "@/pages/production";
 import { TasksPage } from "@/pages/teamleader";
 import { MyTasksPage, MyKPIPage } from "@/pages/employee";
 import { InventoryPage, StockManagementPage } from "@/pages/warehouse";
@@ -47,6 +47,7 @@ const App = () => (
               <Route path="/constructor/drawings" element={<ProtectedRoute allowedRoles={['Constructor']}><DrawingsPage /></ProtectedRoute>} />
               <Route path="/employees" element={<ProtectedRoute allowedRoles={['ProductionManager', 'Director']}><EmployeesPage /></ProtectedRoute>} />
               <Route path="/assignments" element={<ProtectedRoute allowedRoles={['ProductionManager']}><AssignmentsPage /></ProtectedRoute>} />
+              <Route path="/templates" element={<ProtectedRoute allowedRoles={['ProductionManager', 'Director']}><TemplatesPage /></ProtectedRoute>} />
               <Route path="/tasks" element={<ProtectedRoute allowedRoles={['TeamLeader']}><TasksPage /></ProtectedRoute>} />
               <Route path="/team-tasks" element={<ProtectedRoute allowedRoles={['TeamLeader']}><TasksPage /></ProtectedRoute>} />
               <Route path="/my-tasks" element={<ProtectedRoute allowedRoles={['Employee']}><MyTasksPage /></ProtectedRoute>} />
