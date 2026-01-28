@@ -12,6 +12,7 @@ import {
   Warehouse,
   Bell,
   Settings,
+  Layers,
   LucideIcon
 } from 'lucide-react';
 
@@ -62,6 +63,12 @@ export const navigationConfig: NavItem[] = [
     href: '/assignments',
     icon: ClipboardList,
     roles: ['ProductionManager'],
+  },
+  {
+    title: 'Templates',
+    href: '/templates',
+    icon: Layers,
+    roles: ['ProductionManager', 'Director'],
   },
   // Team Leader
   {

@@ -23,7 +23,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { constructorService } from '@/services/constructorService';
+import { templateService } from '@/services/templateService';
 import { ConstructorOrder, FurnitureType, Detail } from '@/types/constructor';
+import { FurnitureTypeTemplate } from '@/types/template';
 import {
   ArrowLeft,
   User,
@@ -40,6 +42,7 @@ import {
   ImagePlus,
   Check,
   X,
+  LayoutTemplate,
 } from 'lucide-react';
 import {
   Dialog,
@@ -123,6 +126,9 @@ export const ConstructorOrderDetailPage: React.FC = () => {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [savingCategory, setSavingCategory] = useState(false);
+  const [availableTemplates, setAvailableTemplates] = useState<FurnitureTypeTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<FurnitureTypeTemplate | null>(null);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -219,6 +225,38 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     ));
   };
 
+  // Load templates when modal opens
+  const loadTemplates = useCallback(async () => {
+    if (!order) return;
+    setTemplatesLoading(true);
+    try {
+      // Try to get categoryId from order
+      const categoryId = order.categories?.[0]?.id || 
+                         (order.categoryNames && Array.isArray(order.categoryNames) ? 1 : 0);
+      if (categoryId) {
+        const templates = await templateService.getActiveByCategoryId(categoryId);
+        setAvailableTemplates(templates);
+      }
+    } catch (error) {
+      console.error('Failed to load templates:', error);
+      setAvailableTemplates([]);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }, [order]);
+
+  const handleOpenCategoryModal = () => {
+    setNewCategoryName('');
+    setSelectedTemplate(null);
+    setCategoryModalOpen(true);
+    loadTemplates();
+  };
+
+  const handleSelectTemplate = (template: FurnitureTypeTemplate) => {
+    setSelectedTemplate(template);
+    setNewCategoryName(template.name);
+  };
+
   // Add new category (furniture type)
   const handleAddCategory = async () => {
     if (!newCategoryName.trim() || !id) return;
@@ -228,6 +266,7 @@ export const ConstructorOrderDetailPage: React.FC = () => {
       toast({ title: 'Muvaffaqiyat', description: 'Kategoriya qo\'shildi' });
       setCategoryModalOpen(false);
       setNewCategoryName('');
+      setSelectedTemplate(null);
       loadOrder();
     } catch (error: any) {
       toast({
@@ -629,7 +668,7 @@ export const ConstructorOrderDetailPage: React.FC = () => {
                 <span className="text-sm text-muted-foreground">
                   <Tag className="h-3 w-3 inline mr-1" /> {totalDimensions} razmer
                 </span>
-                <Button size="sm" onClick={() => setCategoryModalOpen(true)}>
+                <Button size="sm" onClick={handleOpenCategoryModal}>
                   <Plus className="h-4 w-4 mr-1" />
                   Kategoriya
                 </Button>
@@ -968,7 +1007,7 @@ export const ConstructorOrderDetailPage: React.FC = () => {
           <Button variant="outline" onClick={() => navigate('/constructor/orders')}>
             Bekor qilish
           </Button>
-          <Button onClick={handleCompleteOrder} className="bg-green-500 hover:bg-green-600">
+          <Button onClick={handleCompleteOrder} className="bg-success hover:bg-success/90">
             <Check className="h-4 w-4 mr-2" />
             Razmer tayyor
           </Button>
@@ -977,19 +1016,99 @@ export const ConstructorOrderDetailPage: React.FC = () => {
 
       {/* Add Category Modal */}
       <Dialog open={categoryModalOpen} onOpenChange={setCategoryModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Yangi kategoriya qo'shish</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Template Selection */}
+            {templatesLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground py-4">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <span className="text-sm">Shablonlar yuklanmoqda...</span>
+              </div>
+            ) : availableTemplates.length > 0 ? (
+              <div className="space-y-3">
+                <Label className="text-sm">Shablon tanlang (ixtiyoriy)</Label>
+                <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
+                  {availableTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      onClick={() => handleSelectTemplate(template)}
+                      className={`p-3 border rounded-lg cursor-pointer transition-all hover:border-primary/50 ${
+                        selectedTemplate?.id === template.id
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{template.name}</p>
+                          {template.description && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {template.description}
+                            </p>
+                          )}
+                          {template.defaultMaterial && (
+                            <Badge variant="secondary" className="mt-2 text-xs">
+                              {template.defaultMaterial}
+                            </Badge>
+                          )}
+                        </div>
+                        {selectedTemplate?.id === template.id && (
+                          <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    setSelectedTemplate(null);
+                    setNewCategoryName('');
+                  }}
+                >
+                  <LayoutTemplate className="h-4 w-4 mr-2" />
+                  Shablonsiz yaratish
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 py-2 text-muted-foreground text-sm">
+                <LayoutTemplate className="h-4 w-4" />
+                <span>Mavjud shablonlar yo'q - qo'lda nom kiriting</span>
+              </div>
+            )}
+
+            {/* Category Name Input */}
             <div>
               <Label>Kategoriya nomi</Label>
               <Input
                 value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
+                onChange={(e) => {
+                  setNewCategoryName(e.target.value);
+                  if (selectedTemplate && e.target.value !== selectedTemplate.name) {
+                    setSelectedTemplate(null);
+                  }
+                }}
                 placeholder="Masalan: Shkaf-kupe"
               />
             </div>
+
+            {/* Selected template info */}
+            {selectedTemplate && (
+              <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                <p className="font-medium mb-1">Tanlangan shablon:</p>
+                {selectedTemplate.defaultMaterial && (
+                  <p className="text-muted-foreground">Material: {selectedTemplate.defaultMaterial}</p>
+                )}
+                {selectedTemplate.defaultNotes && (
+                  <p className="text-muted-foreground mt-1">Izoh: {selectedTemplate.defaultNotes}</p>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCategoryModalOpen(false)}>
