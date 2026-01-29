@@ -23,18 +23,28 @@ import { format, differenceInDays, parseISO } from 'date-fns';
 
 type StatusFilter = 'all' | 'waiting' | 'inProgress' | 'returned' | 'completed' | 'delayed';
 
+// Normalize backend status to consistent format
+const normalizeStatus = (status: string): string => {
+  const statusLower = status?.toLowerCase() || '';
+  if (statusLower === 'pending' || statusLower === 'created' || statusLower === 'assigned') return 'Pending';
+  if (statusLower === 'inprogress' || statusLower === 'in_progress') return 'InProgress';
+  if (statusLower === 'completed' || statusLower === 'senttowarehouse') return 'Completed';
+  if (statusLower === 'returned' || statusLower === 'requiresremeasurement') return 'Returned';
+  if (statusLower === 'delayed') return 'Delayed';
+  return status;
+};
+
 const getStatusInfo = (status: string) => {
+  const normalized = normalizeStatus(status);
   const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; bgColor: string; textColor: string }> = {
-    Created: { label: 'Kutilmoqda', variant: 'outline', bgColor: 'bg-blue-50', textColor: 'text-blue-600' },
-    Assigned: { label: 'Kutilmoqda', variant: 'outline', bgColor: 'bg-blue-50', textColor: 'text-blue-600' },
+    Pending: { label: 'Kutilmoqda', variant: 'outline', bgColor: 'bg-blue-50', textColor: 'text-blue-600' },
     InProgress: { label: 'Jarayonda', variant: 'default', bgColor: 'bg-green-50', textColor: 'text-green-600' },
-    RequiresRemeasurement: { label: 'Qayta o\'lchov', variant: 'destructive', bgColor: 'bg-orange-50', textColor: 'text-orange-600' },
-    SentToWarehouse: { label: 'Razmer tayyor', variant: 'secondary', bgColor: 'bg-green-50', textColor: 'text-green-600' },
     Completed: { label: 'Tayyor', variant: 'secondary', bgColor: 'bg-green-50', textColor: 'text-green-600' },
     Returned: { label: 'Qaytarilgan', variant: 'destructive', bgColor: 'bg-yellow-50', textColor: 'text-yellow-600' },
+    Delayed: { label: 'Kechikkan', variant: 'destructive', bgColor: 'bg-red-50', textColor: 'text-red-600' },
   };
   
-  return statusMap[status] || statusMap.Created;
+  return statusMap[normalized] || statusMap.Pending;
 };
 
 const getDeadlineInfo = (deadline?: string) => {
@@ -58,21 +68,55 @@ const getDeadlineInfo = (deadline?: string) => {
 };
 
 const getActionButton = (status: string) => {
-  switch (status) {
-    case 'Created':
-    case 'Assigned':
+  const normalized = normalizeStatus(status);
+  switch (normalized) {
+    case 'Pending':
       return { label: 'Ishni boshlash', color: 'bg-primary hover:bg-primary/90' };
     case 'InProgress':
       return { label: 'Davom ettirish', color: 'bg-green-500 hover:bg-green-600' };
-    case 'RequiresRemeasurement':
-      return { label: 'Qayta o\'lchov', color: 'bg-orange-500 hover:bg-orange-600' };
-    case 'SentToWarehouse':
-      return { label: 'Tahrirlash', color: 'bg-blue-500 hover:bg-blue-600' };
     case 'Returned':
-      return { label: 'Davom ettirish', color: 'bg-green-500 hover:bg-green-600' };
+      return { label: 'Qayta ishlash', color: 'bg-orange-500 hover:bg-orange-600' };
+    case 'Completed':
+      return { label: 'Ko\'rish', color: 'bg-blue-500 hover:bg-blue-600' };
     default:
       return { label: 'Davom ettirish', color: 'bg-primary hover:bg-primary/90' };
   }
+};
+
+// Extract category names from order - handles multiple backend formats
+const getCategoryNames = (order: ConstructorOrder): string => {
+  // Priority 1: categories array with objects containing name
+  if (Array.isArray(order.categories) && order.categories.length > 0) {
+    const names = order.categories
+      .map(c => c?.name)
+      .filter(Boolean);
+    if (names.length > 0) return names.join(', ');
+  }
+  
+  // Priority 2: categoryNames as array
+  if (Array.isArray(order.categoryNames) && order.categoryNames.length > 0) {
+    return order.categoryNames.filter(Boolean).join(', ');
+  }
+  
+  // Priority 3: categoryNames as string
+  if (typeof order.categoryNames === 'string' && order.categoryNames.trim()) {
+    return order.categoryNames;
+  }
+  
+  // Priority 4: single categoryName
+  if (order.categoryName && order.categoryName.trim()) {
+    return order.categoryName;
+  }
+  
+  // Priority 5: furnitureTypes names
+  if (Array.isArray(order.furnitureTypes) && order.furnitureTypes.length > 0) {
+    const names = order.furnitureTypes
+      .map(ft => ft?.name)
+      .filter(Boolean);
+    if (names.length > 0) return names.join(', ');
+  }
+  
+  return 'Kategoriya belgilanmagan';
 };
 
 export const ConstructorOrdersPage: React.FC = () => {
@@ -115,9 +159,7 @@ export const ConstructorOrdersPage: React.FC = () => {
   const getFilteredOrders = () => {
     let filtered = orders.filter(order => {
       const search = searchTerm.toLowerCase();
-      const categoryName = Array.isArray(order.categoryNames) 
-        ? order.categoryNames.join(' ').toLowerCase() 
-        : (order.categoryName || '').toLowerCase();
+      const categoryName = getCategoryNames(order).toLowerCase();
       
       return (
         order.orderNumber?.toLowerCase().includes(search) ||
@@ -129,18 +171,20 @@ export const ConstructorOrdersPage: React.FC = () => {
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter(order => {
+        const normalized = normalizeStatus(order.status);
         const deadlineInfo = getDeadlineInfo(order.deadline);
+        
         switch (statusFilter) {
           case 'waiting':
-            return order.status === 'Created' || order.status === 'Assigned';
+            return normalized === 'Pending';
           case 'inProgress':
-            return order.status === 'InProgress';
+            return normalized === 'InProgress';
           case 'returned':
-            return order.status === 'Returned' || order.status === 'RequiresRemeasurement';
+            return normalized === 'Returned';
           case 'completed':
-            return order.status === 'Completed' || order.status === 'SentToWarehouse';
+            return normalized === 'Completed';
           case 'delayed':
-            return deadlineInfo?.isDelayed;
+            return deadlineInfo?.isDelayed || normalized === 'Delayed';
           default:
             return true;
         }
@@ -152,20 +196,15 @@ export const ConstructorOrdersPage: React.FC = () => {
 
   const filteredOrders = getFilteredOrders();
 
-  // Calculate stats
+  // Calculate stats from filtered orders list
   const stats = {
-    waiting: orders.filter(o => o.status === 'Created' || o.status === 'Assigned').length,
-    inProgress: orders.filter(o => o.status === 'InProgress').length,
-    completed: orders.filter(o => o.status === 'Completed' || o.status === 'SentToWarehouse').length,
-    returned: orders.filter(o => o.status === 'Returned' || o.status === 'RequiresRemeasurement').length,
+    waiting: orders.filter(o => normalizeStatus(o.status) === 'Pending').length,
+    inProgress: orders.filter(o => normalizeStatus(o.status) === 'InProgress').length,
+    completed: orders.filter(o => normalizeStatus(o.status) === 'Completed').length,
+    returned: orders.filter(o => normalizeStatus(o.status) === 'Returned').length,
     delayed: orders.filter(o => {
-      const deadline = o.deadline;
-      if (!deadline) return false;
-      try {
-        return differenceInDays(new Date(), parseISO(deadline)) > 0;
-      } catch {
-        return false;
-      }
+      const deadlineInfo = getDeadlineInfo(o.deadline);
+      return deadlineInfo?.isDelayed || normalizeStatus(o.status) === 'Delayed';
     }).length,
   };
 
@@ -334,23 +373,14 @@ export const ConstructorOrdersPage: React.FC = () => {
               const statusInfo = getStatusInfo(order.status);
               const deadlineInfo = getDeadlineInfo(order.deadline);
               const actionButton = getActionButton(order.status);
-              const furnitureCount = order.furnitureTypes?.length || order.categories?.length || 0;
+              
+              // Get counts from categories or furnitureTypes
+              const furnitureCount = order.categories?.length || order.furnitureTypes?.length || 0;
               const drawingsCount = order.furnitureTypes?.reduce((acc, ft) => acc + (ft.drawingsCount || 0), 0) || 0;
               const completedCount = order.furnitureTypes?.filter(ft => ft.isCompleted).length || 0;
               
-              // Defensive category name resolution - check multiple possible fields
-              const categoryName = (() => {
-                if (Array.isArray(order.categoryNames) && order.categoryNames.length > 0) {
-                  return order.categoryNames.join(', ');
-                }
-                if (typeof order.categoryNames === 'string' && order.categoryNames) {
-                  return order.categoryNames;
-                }
-                if (order.categoryName) return order.categoryName;
-                if (order.furnitureTypes?.[0]?.name) return order.furnitureTypes[0].name;
-                if (order.categories?.[0]?.name) return order.categories[0].name;
-                return 'Kategoriya belgilanmagan';
-              })();
+              // Use centralized category name extraction
+              const categoryName = getCategoryNames(order);
               
               // Defensive customer name resolution
               const customerDisplayName = order.customerName || order.contractNumber || `Buyurtma #${order.id}`;

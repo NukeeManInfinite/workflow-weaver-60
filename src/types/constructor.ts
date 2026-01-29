@@ -61,6 +61,11 @@ export interface ConstructorOrder {
   customerAddress?: string;
   categoryName?: string;
   categoryNames?: string[] | string;
+  // Categories from backend - array of {id, name}
+  categories?: Array<{
+    id: number;
+    name: string;
+  }>;
   status: string;
   statusText?: string;
   totalAmount: number;
@@ -68,10 +73,12 @@ export interface ConstructorOrder {
   createdAt: string;
   updatedAt?: string;
   assignedAt?: string;
-  constructorId: number;
+  assignedConstructorId?: number;
+  constructorId?: number;
   constructorName?: string;
-  furnitureTypes: FurnitureTypeSummary[];
-  categories?: OrderCategory[];
+  furnitureTypes?: FurnitureTypeSummary[];
+  furnitureTypesCount?: number;
+  imagesCount?: number;
 }
 
 export interface OrderCategory {
