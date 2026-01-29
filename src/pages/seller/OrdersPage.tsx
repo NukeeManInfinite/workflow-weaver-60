@@ -214,8 +214,7 @@ export const OrdersPage: React.FC = () => {
       toast({ title: 'Success', description: 'Constructor assigned successfully' });
       setAssignConstructorModalOpen(false);
       setSelectedOrder(null);
-      // Re-fetch both orders list and stats to ensure UI reflects DB state
-      await Promise.all([fetchOrders(), fetchStats()]);
+      fetchOrders();
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -236,8 +235,7 @@ export const OrdersPage: React.FC = () => {
       toast({ title: 'Success', description: 'Production manager assigned successfully' });
       setAssignManagerModalOpen(false);
       setSelectedOrder(null);
-      // Re-fetch both orders list and stats to ensure UI reflects DB state
-      await Promise.all([fetchOrders(), fetchStats()]);
+      fetchOrders();
     } catch (error: any) {
       toast({
         title: 'Error',

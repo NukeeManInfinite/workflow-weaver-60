@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,9 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Order } from '@/types/order';
-import { ordersApi } from '@/services/orders.api';
 import { 
   FileText, 
   User, 
@@ -78,41 +76,9 @@ const formatCategories = (order: Order): string => {
 export const OrderViewModal: React.FC<OrderViewModalProps> = ({
   open,
   onClose,
-  order: initialOrder,
+  order,
 }) => {
-  const [order, setOrder] = useState<Order | null>(initialOrder);
-  const [loading, setLoading] = useState(false);
-
-  // Fetch fresh order data from API when modal opens
-  useEffect(() => {
-    if (open && initialOrder?.id) {
-      const fetchOrderDetails = async () => {
-        setLoading(true);
-        try {
-          const freshOrder = await ordersApi.getById(initialOrder.id);
-          setOrder(freshOrder);
-        } catch (error) {
-          console.error('Failed to fetch order details:', error);
-          // Fall back to initial order data
-          setOrder(initialOrder);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchOrderDetails();
-    } else if (!open) {
-      setOrder(null);
-    }
-  }, [open, initialOrder?.id]);
-
-  // Update local order when initialOrder changes (for consistency)
-  useEffect(() => {
-    if (initialOrder) {
-      setOrder(initialOrder);
-    }
-  }, [initialOrder]);
-
-  if (!order && !loading) return null;
+  if (!order) return null;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -124,166 +90,145 @@ export const OrderViewModal: React.FC<OrderViewModalProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        {loading ? (
-          <div className="space-y-6">
-            <Skeleton className="h-20 w-full" />
-            <div className="grid grid-cols-2 gap-4">
-              <Skeleton className="h-32 w-full" />
-              <Skeleton className="h-32 w-full" />
+        <div className="space-y-6">
+          {/* Order Header */}
+          <div className="flex items-center justify-between bg-muted/50 p-4 rounded-lg">
+            <div>
+              <p className="text-sm text-muted-foreground">Order Number</p>
+              <p className="text-xl font-semibold">{order.orderNumber || '-'}</p>
             </div>
-            <Skeleton className="h-16 w-full" />
-            <div className="grid grid-cols-2 gap-4">
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
+            <Badge variant={getStatusBadgeVariant(order.status)} className="text-sm px-3 py-1">
+              {order.status}
+            </Badge>
+          </div>
+
+          {/* Contract & Customer Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3 p-4 border rounded-lg">
+              <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
+                <Hash className="h-4 w-4" />
+                Contract Information
+              </h4>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Contract #:</span>
+                  <span className="font-medium text-sm">{order.contractNumber || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Amount:</span>
+                  <span className="font-semibold text-primary">{formatCurrency(order.totalAmount)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 p-4 border rounded-lg">
+              <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
+                <User className="h-4 w-4" />
+                Customer Information
+              </h4>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Name:</span>
+                  <span className="font-medium text-sm">{order.customerName || '-'}</span>
+                </div>
+                {order.customerPhone && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Phone className="h-3 w-3" /> Phone:
+                    </span>
+                    <span className="text-sm">{order.customerPhone}</span>
+                  </div>
+                )}
+                {order.customerAddress && (
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3 w-3" /> Address:
+                    </span>
+                    <span className="text-sm text-right max-w-[150px]">{order.customerAddress}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        ) : order ? (
-          <div className="space-y-6">
-            {/* Order Header */}
-            <div className="flex items-center justify-between bg-muted/50 p-4 rounded-lg">
-              <div>
-                <p className="text-sm text-muted-foreground">Order Number</p>
-                <p className="text-xl font-semibold">{order.orderNumber || '-'}</p>
-              </div>
-              <Badge variant={getStatusBadgeVariant(order.status)} className="text-sm px-3 py-1">
-                {order.status}
-              </Badge>
-            </div>
 
-            {/* Contract & Customer Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3 p-4 border rounded-lg">
-                <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
-                  <Hash className="h-4 w-4" />
-                  Contract Information
-                </h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Contract #:</span>
-                    <span className="font-medium text-sm">{order.contractNumber || '-'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Amount:</span>
-                    <span className="font-semibold text-primary">{formatCurrency(order.totalAmount)}</span>
-                  </div>
-                </div>
-              </div>
+          {/* Categories */}
+          <div className="p-4 border rounded-lg space-y-2">
+            <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
+              <Package className="h-4 w-4" />
+              Categories
+            </h4>
+            <p className="text-sm">{formatCategories(order)}</p>
+          </div>
 
-              <div className="space-y-3 p-4 border rounded-lg">
-                <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
-                  <User className="h-4 w-4" />
-                  Customer Information
-                </h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Name:</span>
-                    <span className="font-medium text-sm">{order.customerName || '-'}</span>
-                  </div>
-                  {order.customerPhone && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Phone className="h-3 w-3" /> Phone:
-                      </span>
-                      <span className="text-sm">{order.customerPhone}</span>
-                    </div>
-                  )}
-                  {order.customerAddress && (
-                    <div className="flex justify-between items-start">
-                      <span className="text-sm text-muted-foreground flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> Address:
-                      </span>
-                      <span className="text-sm text-right max-w-[150px]">{order.customerAddress}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Categories */}
+          {/* Assigned Personnel */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 border rounded-lg space-y-2">
               <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
-                <Package className="h-4 w-4" />
-                Categories
+                <Wrench className="h-4 w-4" />
+                Constructor
               </h4>
-              <p className="text-sm">{formatCategories(order)}</p>
+              <p className={`text-sm ${order.constructorName ? 'font-medium' : 'text-muted-foreground italic'}`}>
+                {order.constructorName || 'Not assigned'}
+              </p>
             </div>
-
-            {/* Assigned Personnel */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 border rounded-lg space-y-2">
-                <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
-                  <Wrench className="h-4 w-4" />
-                  Constructor
-                </h4>
-                <p className={`text-sm ${order.constructorName ? 'font-medium' : 'text-muted-foreground italic'}`}>
-                  {order.constructorName || 'Not assigned'}
-                </p>
-                {order.constructorId && !order.constructorName && (
-                  <p className="text-xs text-muted-foreground">ID: {order.constructorId}</p>
-                )}
-              </div>
-              <div className="p-4 border rounded-lg space-y-2">
-                <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
-                  <UserCog className="h-4 w-4" />
-                  Production Manager
-                </h4>
-                <p className={`text-sm ${order.productionManagerName ? 'font-medium' : 'text-muted-foreground italic'}`}>
-                  {order.productionManagerName || 'Not assigned'}
-                </p>
-                {order.productionManagerId && !order.productionManagerName && (
-                  <p className="text-xs text-muted-foreground">ID: {order.productionManagerId}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Description & Notes */}
-            {(order.description || order.notes) && (
-              <>
-                <Separator />
-                <div className="space-y-4">
-                  {order.description && (
-                    <div className="space-y-2">
-                      <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
-                        <ClipboardList className="h-4 w-4" />
-                        Description
-                      </h4>
-                      <p className="text-sm bg-muted/30 p-3 rounded-md">{order.description}</p>
-                    </div>
-                  )}
-                  {order.notes && (
-                    <div className="space-y-2">
-                      <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
-                        <StickyNote className="h-4 w-4" />
-                        Notes
-                      </h4>
-                      <p className="text-sm bg-muted/30 p-3 rounded-md">{order.notes}</p>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* Dates */}
-            <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                <span>Created:</span>
-                <span className="font-medium text-foreground">{formatDate(order.createdAt)}</span>
-              </div>
-              {order.updatedAt && (
-                <div>
-                  <span>Updated:</span>
-                  <span className="font-medium text-foreground ml-1">{formatDate(order.updatedAt)}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end pt-4 border-t">
-              <Button onClick={onClose}>Close</Button>
+            <div className="p-4 border rounded-lg space-y-2">
+              <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
+                <UserCog className="h-4 w-4" />
+                Production Manager
+              </h4>
+              <p className={`text-sm ${order.productionManagerName ? 'font-medium' : 'text-muted-foreground italic'}`}>
+                {order.productionManagerName || 'Not assigned'}
+              </p>
             </div>
           </div>
-        ) : null}
+
+          {/* Description & Notes */}
+          {(order.description || order.notes) && (
+            <>
+              <Separator />
+              <div className="space-y-4">
+                {order.description && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
+                      <ClipboardList className="h-4 w-4" />
+                      Description
+                    </h4>
+                    <p className="text-sm bg-muted/30 p-3 rounded-md">{order.description}</p>
+                  </div>
+                )}
+                {order.notes && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
+                      <StickyNote className="h-4 w-4" />
+                      Notes
+                    </h4>
+                    <p className="text-sm bg-muted/30 p-3 rounded-md">{order.notes}</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Dates */}
+          <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span>Created:</span>
+              <span className="font-medium text-foreground">{formatDate(order.createdAt)}</span>
+            </div>
+            {order.updatedAt && (
+              <div>
+                <span>Updated:</span>
+                <span className="font-medium text-foreground ml-1">{formatDate(order.updatedAt)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={onClose}>Close</Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
