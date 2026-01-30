@@ -78,6 +78,7 @@ export interface Employee {
   departmentName?: string;
   isActive: boolean;
   activeTasks: number;
+  role: string;
   completedTasks: number;
   onTimePercent: number | null;
   createdAt: string;

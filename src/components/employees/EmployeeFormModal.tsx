@@ -52,6 +52,7 @@ const STATIC_ROLES = [
   { value: 'TeamLeader', label: 'Team Leader' },
   { value: 'Worker', label: 'Worker' },
   { value: 'WarehouseManager', label: 'Warehouse Manager' },
+  { value: 'ProductionManager', label: 'Production Manager' },
 ];
 
 // Default positions - fallback if API fails
