@@ -107,17 +107,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       </TableHeader>
       <TableBody>
         {orders.map((order, index) => {
-          // Format category names - prioritize Many-to-Many categories array
-          let categoryDisplay = '-';
-          if (order.categories && Array.isArray(order.categories) && order.categories.length > 0) {
-            categoryDisplay = order.categories.map(cat => cat.name).join(', ');
-          } else if (order.categoryNames) {
-            categoryDisplay = Array.isArray(order.categoryNames)
+          // Format category names
+          const categoryDisplay = order.categoryNames
+            ? Array.isArray(order.categoryNames)
               ? order.categoryNames.join(', ')
-              : order.categoryNames;
-          } else if (order.categoryName) {
-            categoryDisplay = order.categoryName;
-          }
+              : order.categoryNames
+            : order.categoryName || '-';
 
           return (
           <TableRow key={`${order.id}-${index}`}>

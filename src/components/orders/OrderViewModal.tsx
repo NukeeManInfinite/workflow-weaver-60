@@ -65,17 +65,11 @@ const formatDate = (dateString?: string): string => {
 };
 
 const formatCategories = (order: Order): string => {
-  // Priority 1: New Many-to-Many categories array
-  if (order.categories && Array.isArray(order.categories) && order.categories.length > 0) {
-    return order.categories.map(cat => cat.name).join(', ');
-  }
-  // Priority 2: Legacy categoryNames field
   if (order.categoryNames) {
     return Array.isArray(order.categoryNames) 
       ? order.categoryNames.join(', ') 
       : order.categoryNames;
   }
-  // Priority 3: Single category fallback
   return order.categoryName || '-';
 };
 
