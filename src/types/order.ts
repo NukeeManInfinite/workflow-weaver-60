@@ -1,5 +1,11 @@
 // Order Types for Orders Management
 
+// Category DTO from backend
+export interface CategoryDto {
+  id: number;
+  name: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -12,7 +18,8 @@ export interface Order {
   categoryId?: string;
   categoryName?: string;
   categoryNames?: string[] | string;
-  categories?: number;
+  // New Many-to-Many categories array from backend
+  categories?: CategoryDto[];
   status: OrderStatus;
   totalAmount: number;
   constructorId?: string;
