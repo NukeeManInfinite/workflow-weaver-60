@@ -221,6 +221,34 @@ export const constructorService = {
     await apiClient.post(`/Constructor/complete-with-data/${furnitureTypeId}`, data);
   },
 
+  // ============ ORDER IMAGES ============
+  async uploadOrderImage(orderId: number, file: File, imageType: 'room' | 'design'): Promise<{ id: number; fileUrl: string }> {
+    const formData = new FormData();
+    formData.append('orderId', orderId.toString());
+    formData.append('file', file);
+    formData.append('imageType', imageType);
+
+    const response = await apiClient.post('/Constructor/order-images', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return extractData<{ id: number; fileUrl: string }>(response);
+  },
+
+  async getOrderImages(orderId: number): Promise<{ id: number; fileUrl: string; imageType: string }[]> {
+    try {
+      const response = await apiClient.get(`/Constructor/orders/${orderId}/images`);
+      return extractData<{ id: number; fileUrl: string; imageType: string }[]>(response);
+    } catch {
+      return [];
+    }
+  },
+
+  async deleteOrderImage(imageId: number): Promise<void> {
+    await apiClient.delete(`/Constructor/order-images/${imageId}`);
+  },
+
   // ============ STATS ============
   async getStats(): Promise<ConstructorStats> {
     try {

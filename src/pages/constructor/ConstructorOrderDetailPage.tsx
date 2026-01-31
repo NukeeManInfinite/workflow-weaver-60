@@ -148,8 +148,9 @@ export const ConstructorOrderDetailPage: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
 
   // Room images
-  const [roomImages, setRoomImages] = useState<string[]>([]);
-  const [designImages, setDesignImages] = useState<string[]>([]);
+  const [roomImages, setRoomImages] = useState<{ id: number; fileUrl: string }[]>([]);
+  const [designImages, setDesignImages] = useState<{ id: number; fileUrl: string }[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const roomInputRef = useRef<HTMLInputElement>(null);
   const designInputRef = useRef<HTMLInputElement>(null);
 
@@ -723,14 +724,70 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     }
   };
 
+  // Load order images
+  const loadOrderImages = useCallback(async () => {
+    if (!id) return;
+    try {
+      const images = await constructorService.getOrderImages(Number(id));
+      const roomImgs = images.filter(img => img.imageType === 'room').map(img => ({ id: img.id, fileUrl: img.fileUrl }));
+      const designImgs = images.filter(img => img.imageType === 'design').map(img => ({ id: img.id, fileUrl: img.fileUrl }));
+      setRoomImages(roomImgs);
+      setDesignImages(designImgs);
+    } catch (error) {
+      console.error('Failed to load order images:', error);
+    }
+  }, [id]);
+
+  // Load images on mount
+  useEffect(() => {
+    loadOrderImages();
+  }, [loadOrderImages]);
+
   // Handle image upload
-  const handleImageUpload = (type: 'room' | 'design', files: FileList | null) => {
-    if (!files) return;
-    const newImages = Array.from(files).map(file => URL.createObjectURL(file));
-    if (type === 'room') {
-      setRoomImages(prev => [...prev, ...newImages]);
-    } else {
-      setDesignImages(prev => [...prev, ...newImages]);
+  const handleImageUpload = async (type: 'room' | 'design', files: FileList | null) => {
+    if (!files || !id) return;
+    setUploadingImage(true);
+    
+    try {
+      for (const file of Array.from(files)) {
+        const result = await constructorService.uploadOrderImage(Number(id), file, type);
+        const newImage = { id: result.id, fileUrl: result.fileUrl };
+        
+        if (type === 'room') {
+          setRoomImages(prev => [...prev, newImage]);
+        } else {
+          setDesignImages(prev => [...prev, newImage]);
+        }
+      }
+      toast({ title: 'Muvaffaqiyat', description: 'Rasm yuklandi' });
+    } catch (error: any) {
+      console.error('Failed to upload image:', error);
+      toast({
+        title: 'Xatolik',
+        description: error?.response?.data?.message || 'Rasm yuklashda xatolik',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Handle image delete
+  const handleDeleteImage = async (imageId: number, type: 'room' | 'design') => {
+    try {
+      await constructorService.deleteOrderImage(imageId);
+      if (type === 'room') {
+        setRoomImages(prev => prev.filter(img => img.id !== imageId));
+      } else {
+        setDesignImages(prev => prev.filter(img => img.id !== imageId));
+      }
+      toast({ title: 'O\'chirildi', description: 'Rasm o\'chirildi' });
+    } catch (error: any) {
+      toast({
+        title: 'Xatolik',
+        description: 'Rasmni o\'chirishda xatolik',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -1180,13 +1237,30 @@ export const ConstructorOrderDetailPage: React.FC = () => {
             <CardContent className="p-5">
               <Label className="text-sm font-medium mb-3 block">Xona rasmlari</Label>
               <div
-                className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors ${uploadingImage ? 'opacity-50 pointer-events-none' : ''}`}
                 onClick={() => roomInputRef.current?.click()}
               >
-                {roomImages.length > 0 ? (
+                {uploadingImage ? (
+                  <div className="flex flex-col items-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mb-2" />
+                    <p className="text-sm text-muted-foreground">Yuklanmoqda...</p>
+                  </div>
+                ) : roomImages.length > 0 ? (
                   <div className="grid grid-cols-3 gap-2">
-                    {roomImages.map((img, i) => (
-                      <img key={i} src={img} alt={`Room ${i + 1}`} className="w-full h-20 object-cover rounded" />
+                    {roomImages.map((img) => (
+                      <div key={img.id} className="relative group">
+                        <img src={img.fileUrl} alt="Room" className="w-full h-20 object-cover rounded" />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteImage(img.id, 'room');
+                          }}
+                          className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -1212,13 +1286,30 @@ export const ConstructorOrderDetailPage: React.FC = () => {
             <CardContent className="p-5">
               <Label className="text-sm font-medium mb-3 block">Dizayn namunalari</Label>
               <div
-                className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors ${uploadingImage ? 'opacity-50 pointer-events-none' : ''}`}
                 onClick={() => designInputRef.current?.click()}
               >
-                {designImages.length > 0 ? (
+                {uploadingImage ? (
+                  <div className="flex flex-col items-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mb-2" />
+                    <p className="text-sm text-muted-foreground">Yuklanmoqda...</p>
+                  </div>
+                ) : designImages.length > 0 ? (
                   <div className="grid grid-cols-3 gap-2">
-                    {designImages.map((img, i) => (
-                      <img key={i} src={img} alt={`Design ${i + 1}`} className="w-full h-20 object-cover rounded" />
+                    {designImages.map((img) => (
+                      <div key={img.id} className="relative group">
+                        <img src={img.fileUrl} alt="Design" className="w-full h-20 object-cover rounded" />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteImage(img.id, 'design');
+                          }}
+                          className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 ) : (
