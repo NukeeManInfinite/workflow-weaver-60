@@ -339,18 +339,42 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     if (!newMebelName.trim() || !id || !selectedCategoryForMebel) return;
     setSavingMebel(true);
     try {
-      await constructorService.createFurnitureType({ 
+      const createdFurnitureType = await constructorService.createFurnitureType({ 
         name: newMebelName, 
         orderId: Number(id),
         categoryId: selectedCategoryForMebel.id,
       });
+      
+      console.log('Created furniture type:', createdFurnitureType);
+      
+      // Immediately update UI with new mebel
+      const newMebel: MebelState = {
+        id: createdFurnitureType.id,
+        name: createdFurnitureType.name,
+        categoryId: selectedCategoryForMebel.id,
+        isOpen: false,
+        details: [],
+        detailsCount: 0,
+        dimensionsCount: 0,
+      };
+      
+      setOrderCategories(prev => prev.map(cat => {
+        if (cat.id === selectedCategoryForMebel.id) {
+          return {
+            ...cat,
+            mebellar: [...cat.mebellar, newMebel],
+          };
+        }
+        return cat;
+      }));
+      
       toast({ title: 'Muvaffaqiyat', description: 'Mebel qo\'shildi' });
       setMebelModalOpen(false);
       setNewMebelName('');
       setSelectedTemplate(null);
       setSelectedCategoryForMebel(null);
-      loadOrder();
     } catch (error: any) {
+      console.error('Failed to create furniture type:', error);
       toast({
         title: 'Xatolik',
         description: error?.response?.data?.message || 'Mebel qo\'shishda xatolik',
