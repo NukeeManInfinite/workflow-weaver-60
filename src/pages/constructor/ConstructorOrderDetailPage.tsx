@@ -573,9 +573,11 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     }
 
     try {
+      const savedDimensions: DimensionRow[] = [];
+      
       for (const dim of detail.dimensions) {
         if (dim.isNew || !dim.id) {
-          await constructorService.createDetail({
+          const created = await constructorService.createDetail({
             furnitureTypeId: mebel.id,
             name: detail.name,
             material: detail.materials.join(', ') || 'Noma\'lum',
@@ -584,6 +586,13 @@ export const ConstructorOrderDetailPage: React.FC = () => {
             thickness: dim.thickness,
             quantity: 1,
             notes: detail.notes,
+          });
+          savedDimensions.push({
+            id: created.id,
+            width: dim.width,
+            height: dim.height,
+            thickness: dim.thickness,
+            isNew: false,
           });
         } else {
           await constructorService.updateDetail(dim.id, {
@@ -595,11 +604,39 @@ export const ConstructorOrderDetailPage: React.FC = () => {
             quantity: 1,
             notes: detail.notes,
           });
+          savedDimensions.push({
+            id: dim.id,
+            width: dim.width,
+            height: dim.height,
+            thickness: dim.thickness,
+            isNew: false,
+          });
         }
       }
 
+      // Optimistic UI update - mark dimensions as saved (not new)
+      setOrderCategories(prev => prev.map((cat, ci) => {
+        if (ci !== catIndex) return cat;
+        return {
+          ...cat,
+          mebellar: cat.mebellar.map((m, mi) => {
+            if (mi !== mebelIndex) return m;
+            return {
+              ...m,
+              details: m.details.map((d, di) => {
+                if (di !== detailIndex) return d;
+                return {
+                  ...d,
+                  dimensions: savedDimensions,
+                  isNew: false,
+                };
+              }),
+            };
+          }),
+        };
+      }));
+
       toast({ title: 'Saqlandi', description: 'Detal muvaffaqiyatli saqlandi' });
-      loadOrder();
     } catch (error: any) {
       toast({
         title: 'Xatolik',
