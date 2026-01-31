@@ -27,6 +27,7 @@ import {
   Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { addDays, format } from 'date-fns';
 
 interface CreateContractWizardProps {
   open: boolean;
@@ -116,6 +117,11 @@ export function CreateContractWizard({ open, onClose, onSuccess }: CreateContrac
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
+      // Calculate deadline from productionDurationDays
+      const deadlineDate = data.productionDurationDays > 0
+        ? addDays(new Date(), data.productionDurationDays)
+        : null;
+
       const payload: ContractCreateRequest = {
         categoryIds: data.categoryIds,
         description: data.description,
@@ -125,6 +131,7 @@ export function CreateContractWizard({ open, onClose, onSuccess }: CreateContrac
         deliveryTerms: data.deliveryTerms,
         penaltyTerms: data.penaltyTerms,
         additionalNotes: data.additionalNotes,
+        deadline: deadlineDate ? format(deadlineDate, "yyyy-MM-dd'T'HH:mm:ss") : undefined,
       };
 
       if (data.isNewCustomer && data.newCustomer) {
