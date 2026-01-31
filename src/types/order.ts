@@ -1,5 +1,12 @@
 // Order Types for Orders Management
 
+// Category object in Order (Many-to-Many)
+export interface OrderCategoryInfo {
+  id: number;
+  name: string;
+  description?: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -9,10 +16,12 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   customerAddress?: string;
+  // Many-to-Many: categories is now an array of objects
+  categories?: OrderCategoryInfo[];
+  // Legacy fields for backward compatibility
   categoryId?: string;
   categoryName?: string;
   categoryNames?: string[] | string;
-  categories?: number;
   status: OrderStatus;
   totalAmount: number;
   constructorId?: string;
