@@ -86,6 +86,7 @@ interface MebelState {
   id: number;
   name: string;
   categoryId: number;
+  categoryName?: string;
   isOpen: boolean;
   details: DetailEntry[];
   detailsCount: number;
@@ -204,10 +205,15 @@ export const ConstructorOrderDetailPage: React.FC = () => {
       const categoryStates: OrderCategoryState[] = await Promise.all(
         categoriesFromOrder.map(async (cat) => {
           // Find furniture types linked to this category
-          // If categoryId is null/undefined, show under the first category
+          // Backend returns categoryId - match exactly or group orphans under first category
           const categoryMebellar = orderFurnitureTypes.filter(ft => {
-            const ftCatId = Number((ft as any).categoryId ?? (ft as any).CategoryId ?? 0);
-            // Match exact categoryId or put orphaned furniture types under first category
+            // Handle both camelCase and PascalCase from backend
+            const ftCatId = Number(
+              (ft as any).categoryId ?? 
+              (ft as any).CategoryId ?? 
+              0
+            );
+            // Match exact categoryId, or if no categoryId, put under first category
             return ftCatId === cat.id || (ftCatId === 0 && categoriesFromOrder.indexOf(cat) === 0);
           });
           console.log(`Category ${cat.id} (${cat.name}) mebellar:`, categoryMebellar);
@@ -245,7 +251,8 @@ export const ConstructorOrderDetailPage: React.FC = () => {
                 return {
                   id: ft.id,
                   name: ft.name,
-                  categoryId: cat.id,
+                  categoryId: Number((ft as any).categoryId ?? (ft as any).CategoryId ?? cat.id),
+                  categoryName: (ft as any).categoryName ?? (ft as any).CategoryName ?? cat.name,
                   isOpen: false,
                   details,
                   detailsCount: details.length,
@@ -255,7 +262,8 @@ export const ConstructorOrderDetailPage: React.FC = () => {
                 return {
                   id: ft.id,
                   name: ft.name,
-                  categoryId: cat.id,
+                  categoryId: Number((ft as any).categoryId ?? (ft as any).CategoryId ?? cat.id),
+                  categoryName: (ft as any).categoryName ?? (ft as any).CategoryName ?? cat.name,
                   isOpen: false,
                   details: [],
                   detailsCount: 0,
@@ -354,7 +362,8 @@ export const ConstructorOrderDetailPage: React.FC = () => {
       const newMebel: MebelState = {
         id: createdFurnitureType.id,
         name: createdFurnitureType.name,
-        categoryId: selectedCategoryForMebel.id,
+        categoryId: createdFurnitureType.categoryId ?? selectedCategoryForMebel.id,
+        categoryName: createdFurnitureType.categoryName ?? selectedCategoryForMebel.name,
         isOpen: false,
         details: [],
         detailsCount: 0,
@@ -928,6 +937,12 @@ export const ConstructorOrderDetailPage: React.FC = () => {
                                         <div className="flex items-center gap-3">
                                           <Sofa className="h-4 w-4 text-primary" />
                                           <span className="font-medium">{mebel.name}</span>
+                                          {mebel.categoryName && (
+                                            <Badge variant="outline" className="text-xs bg-primary/10">
+                                              <Tag className="h-3 w-3 mr-1" />
+                                              {mebel.categoryName}
+                                            </Badge>
+                                          )}
                                           <Badge variant="secondary" className="text-xs">
                                             {mebel.detailsCount} detal
                                           </Badge>

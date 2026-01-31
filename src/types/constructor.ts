@@ -5,7 +5,9 @@ export interface FurnitureType {
   name: string;
   description?: string;
   orderId?: number;
+  orderNumber?: string;
   categoryId?: number;
+  categoryName?: string;
   constructorId: number;
   constructorName?: string;
   createdAt: string;
