@@ -7,6 +7,7 @@ export interface FurnitureType {
   orderId?: number;
   orderNumber?: string;
   categoryId?: number;
+  orderCategoryId?: number; // Junction table ID from OrderCategories
   categoryName?: string;
   constructorId: number;
   constructorName?: string;

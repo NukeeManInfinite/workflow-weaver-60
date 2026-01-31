@@ -205,16 +205,25 @@ export const ConstructorOrderDetailPage: React.FC = () => {
       const categoryStates: OrderCategoryState[] = await Promise.all(
         categoriesFromOrder.map(async (cat) => {
           // Find furniture types linked to this category
-          // Backend returns categoryId - match exactly or group orphans under first category
+          // Backend returns OrderCategoryId (junction table) or categoryId - check both
           const categoryMebellar = orderFurnitureTypes.filter(ft => {
-            // Handle both camelCase and PascalCase from backend
+            // Handle OrderCategoryId from junction table AND categoryId
+            // Priority: OrderCategoryId > categoryId > CategoryId
+            const orderCatId = Number(
+              (ft as any).orderCategoryId ?? 
+              (ft as any).OrderCategoryId ?? 
+              0
+            );
             const ftCatId = Number(
               (ft as any).categoryId ?? 
               (ft as any).CategoryId ?? 
               0
             );
+            // Use orderCategoryId if available, otherwise fallback to categoryId
+            const effectiveCatId = orderCatId > 0 ? orderCatId : ftCatId;
+            console.log(`FT ${ft.id} (${ft.name}): orderCategoryId=${orderCatId}, categoryId=${ftCatId}, effective=${effectiveCatId}`);
             // Match exact categoryId, or if no categoryId, put under first category
-            return ftCatId === cat.id || (ftCatId === 0 && categoriesFromOrder.indexOf(cat) === 0);
+            return effectiveCatId === cat.id || (effectiveCatId === 0 && categoriesFromOrder.indexOf(cat) === 0);
           });
           console.log(`Category ${cat.id} (${cat.name}) mebellar:`, categoryMebellar);
 
@@ -251,7 +260,7 @@ export const ConstructorOrderDetailPage: React.FC = () => {
                 return {
                   id: ft.id,
                   name: ft.name,
-                  categoryId: Number((ft as any).categoryId ?? (ft as any).CategoryId ?? cat.id),
+                  categoryId: Number((ft as any).orderCategoryId ?? (ft as any).OrderCategoryId ?? (ft as any).categoryId ?? (ft as any).CategoryId ?? cat.id),
                   categoryName: (ft as any).categoryName ?? (ft as any).CategoryName ?? cat.name,
                   isOpen: false,
                   details,
@@ -262,7 +271,7 @@ export const ConstructorOrderDetailPage: React.FC = () => {
                 return {
                   id: ft.id,
                   name: ft.name,
-                  categoryId: Number((ft as any).categoryId ?? (ft as any).CategoryId ?? cat.id),
+                  categoryId: Number((ft as any).orderCategoryId ?? (ft as any).OrderCategoryId ?? (ft as any).categoryId ?? (ft as any).CategoryId ?? cat.id),
                   categoryName: (ft as any).categoryName ?? (ft as any).CategoryName ?? cat.name,
                   isOpen: false,
                   details: [],
