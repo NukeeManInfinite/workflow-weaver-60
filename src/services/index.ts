@@ -6,3 +6,4 @@ export * from './notificationService';
 export * from './productionManagerService';
 export { categoryAssignmentService, type CategoryAssignment, type TeamLeader, type AssignmentStats, type CreateAssignmentDto, type UpdateAssignmentStatusDto } from './categoryAssignmentService';
 export { notificationService, type CreateNotificationDto } from './notificationService';
+export { orderCategoriesService, type OrderCategory, type AddOrderCategoryDto, type BulkUpdateOrderCategoriesDto } from './orderCategoriesService';

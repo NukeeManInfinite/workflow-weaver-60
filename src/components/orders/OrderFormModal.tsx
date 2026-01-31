@@ -11,12 +11,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Order, CreateOrderDto, UpdateOrderDto, ContractSummary } from '@/types/order';
 import { ContractSelector } from './ContractSelector';
+import { CategoryMultiSelect } from './CategoryMultiSelect';
 import { AlertTriangle, Loader2 } from 'lucide-react';
+import { Category } from '@/types/contract';
 
 interface OrderFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateOrderDto | UpdateOrderDto) => Promise<void>;
+  onSubmit: (data: CreateOrderDto | UpdateOrderDto, categoryIds?: number[]) => Promise<void>;
   order?: Order | null;
   loading: boolean;
 }
@@ -35,6 +37,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedContract, setSelectedContract] = useState<ContractSummary | null>(null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -43,6 +46,14 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
       setContractId(order.contractId ? Number(order.contractId) : null);
       setDescription(order.description || '');
       setNotes(order.notes || '');
+      
+      // Extract category IDs from order.categories array
+      if (order.categories && Array.isArray(order.categories)) {
+        setSelectedCategoryIds(order.categories.map((cat) => Number(cat.id)));
+      } else {
+        setSelectedCategoryIds([]);
+      }
+      
       // Create a contract summary from order data for display
       if (order.contractId) {
         setSelectedContract({
@@ -52,7 +63,11 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
           customerName: order.customerName || '',
           customerPhone: order.customerPhone,
           customerAddress: order.customerAddress,
-          categoryNames: order.categoryName ? [order.categoryName] : [],
+          categoryNames: order.categories 
+            ? order.categories.map((cat) => cat.name)
+            : order.categoryName 
+              ? [order.categoryName] 
+              : [],
           totalAmount: order.totalAmount,
           status: 'Active',
           isApproved: true,
@@ -64,6 +79,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
       setDescription('');
       setNotes('');
       setSelectedContract(null);
+      setSelectedCategoryIds([]);
     }
     setErrors({});
   }, [order, open]);
@@ -78,8 +94,12 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
     setErrors((prev) => ({ ...prev, contractId: '' }));
   };
 
+  const handleCategoryChange = (categoryIds: number[], categories: Category[]) => {
+    console.log('Categories selected:', categoryIds, categories);
+    setSelectedCategoryIds(categoryIds);
+  };
+
   // Form is valid if contractId is selected
-  // Description is optional per backend - but we can require it per UX
   const isFormValid = contractId !== null;
 
   // Show warning if contract is not approved, but DON'T block submission
@@ -100,9 +120,10 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
       notes: notes.trim(),
     };
 
-    console.log('Submitting order payload:', payload);
+    console.log('Submitting order payload:', payload, 'Categories:', selectedCategoryIds);
 
-    await onSubmit(payload);
+    // Pass categoryIds separately for bulk update after order creation
+    await onSubmit(payload, selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined);
   };
 
   return (
@@ -164,12 +185,6 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                       <span>{selectedContract.customerAddress}</span>
                     </div>
                   )}
-                  {selectedContract.categoryNames && selectedContract.categoryNames.length > 0 && (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Categories:</span>{' '}
-                      <span>{selectedContract.categoryNames.join(', ')}</span>
-                    </div>
-                  )}
                   <div>
                     <span className="text-muted-foreground">Amount:</span>{' '}
                     <span className="font-medium">
@@ -179,6 +194,20 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Categories Multi-Select */}
+            <div className="space-y-2">
+              <Label htmlFor="categories">Categories</Label>
+              <CategoryMultiSelect
+                value={selectedCategoryIds}
+                onChange={handleCategoryChange}
+                disabled={loading}
+                placeholder="Select categories for this order..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Select one or more categories for this order. Categories from the contract are pre-selected when creating from a contract.
+              </p>
+            </div>
 
             {/* Description */}
             <div className="space-y-2">

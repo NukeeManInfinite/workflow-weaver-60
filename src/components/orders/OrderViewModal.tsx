@@ -65,6 +65,11 @@ const formatDate = (dateString?: string): string => {
 };
 
 const formatCategories = (order: Order): string => {
+  // Prioritize categories array (Many-to-Many relationship)
+  if (order.categories && Array.isArray(order.categories) && order.categories.length > 0) {
+    return order.categories.map((cat) => cat.name).join(', ');
+  }
+  // Fallback to legacy fields
   if (order.categoryNames) {
     return Array.isArray(order.categoryNames) 
       ? order.categoryNames.join(', ') 
@@ -151,13 +156,23 @@ export const OrderViewModal: React.FC<OrderViewModalProps> = ({
             </div>
           </div>
 
-          {/* Categories */}
+          {/* Categories - Show as badges if multiple */}
           <div className="p-4 border rounded-lg space-y-2">
             <h4 className="font-medium flex items-center gap-2 text-sm text-muted-foreground">
               <Package className="h-4 w-4" />
               Categories
             </h4>
-            <p className="text-sm">{formatCategories(order)}</p>
+            {order.categories && Array.isArray(order.categories) && order.categories.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {order.categories.map((cat) => (
+                  <Badge key={cat.id} variant="secondary">
+                    {cat.name}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm">{formatCategories(order)}</p>
+            )}
           </div>
 
           {/* Assigned Personnel */}
