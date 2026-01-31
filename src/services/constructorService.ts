@@ -48,6 +48,21 @@ export const constructorService = {
     return extractData<FurnitureType[]>(response);
   },
 
+  async getFurnitureTypesByOrderId(orderId: number): Promise<FurnitureType[]> {
+    try {
+      // Try order-specific endpoint first
+      const response = await apiClient.get(`/Constructor/orders/${orderId}/furniture-types`);
+      return extractData<FurnitureType[]>(response);
+    } catch {
+      // Fallback: get all and filter
+      const all = await this.getFurnitureTypes();
+      return all.filter(ft => {
+        const ftOrderId = Number((ft as any).orderId ?? (ft as any).OrderId ?? 0);
+        return ftOrderId === orderId;
+      });
+    }
+  },
+
   async getFurnitureTypeById(id: number): Promise<FurnitureType> {
     const response = await apiClient.get(`/users/furniture-types/${id}`);
     return extractData<FurnitureType>(response);

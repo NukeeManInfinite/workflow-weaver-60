@@ -194,20 +194,23 @@ export const ConstructorOrderDetailPage: React.FC = () => {
       }
 
       // 2. Load all furniture types for this order
-      const allFurnitureTypes = await constructorService.getFurnitureTypes();
+      // Use dedicated method that handles order-specific endpoint or fallback
+      const orderFurnitureTypes = await constructorService.getFurnitureTypesByOrderId(Number(id));
       
-      // Filter furniture types that belong to this order
-      const orderFurnitureTypes = allFurnitureTypes.filter(
-        ft => ft.orderId === Number(id)
-      );
+      console.log('Order furniture types:', orderFurnitureTypes);
+      console.log('Categories from order:', categoriesFromOrder);
 
       // 3. Build category states with their mebellar (furniture types)
       const categoryStates: OrderCategoryState[] = await Promise.all(
         categoriesFromOrder.map(async (cat) => {
           // Find furniture types linked to this category
-          const categoryMebellar = orderFurnitureTypes.filter(
-            ft => ft.categoryId === cat.id
-          );
+          // If categoryId is null/undefined, show under the first category
+          const categoryMebellar = orderFurnitureTypes.filter(ft => {
+            const ftCatId = Number((ft as any).categoryId ?? (ft as any).CategoryId ?? 0);
+            // Match exact categoryId or put orphaned furniture types under first category
+            return ftCatId === cat.id || (ftCatId === 0 && categoriesFromOrder.indexOf(cat) === 0);
+          });
+          console.log(`Category ${cat.id} (${cat.name}) mebellar:`, categoryMebellar);
 
           // Load details for each mebel
           const mebelStates: MebelState[] = await Promise.all(
