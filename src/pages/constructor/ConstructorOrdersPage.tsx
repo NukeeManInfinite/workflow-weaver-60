@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { constructorService } from '@/services/constructorService';
 import { categoryService } from '@/services/categoryService';
+import { orderCategoriesService } from '@/services/orderCategoriesService';
 import { ConstructorOrder } from '@/types/constructor';
 import { getOrderCategoryNames, createCategoriesMap } from '@/lib/categoryUtils';
 import {
@@ -114,7 +115,39 @@ export const ConstructorOrdersPage: React.FC = () => {
       
       // Backend already filters by current constructor, just ensure array
       const ordersArray = Array.isArray(data) ? data : [];
-      setOrders(ordersArray);
+      
+      // Enrich orders with orderCategories if not present
+      const enrichedOrders = await Promise.all(
+        ordersArray.map(async (order) => {
+          // If order already has categories or orderCategories with data, skip fetching
+          if (
+            (order.categories && order.categories.length > 0) ||
+            (order.orderCategories && order.orderCategories.length > 0) ||
+            (order.categoryNames && (Array.isArray(order.categoryNames) ? order.categoryNames.length > 0 : order.categoryNames.trim()))
+          ) {
+            return order;
+          }
+          
+          // Fetch categories from OrderCategories junction table
+          try {
+            const orderCats = await orderCategoriesService.getCategoriesByOrderId(order.id);
+            console.log(`Order ${order.id} categories from junction table:`, orderCats);
+            
+            if (orderCats && orderCats.length > 0) {
+              return {
+                ...order,
+                orderCategories: orderCats,
+              };
+            }
+          } catch (catError) {
+            console.warn(`Failed to fetch categories for order ${order.id}:`, catError);
+          }
+          
+          return order;
+        })
+      );
+      
+      setOrders(enrichedOrders);
     } catch (error: any) {
       console.error('Failed to load orders:', error);
       toast({

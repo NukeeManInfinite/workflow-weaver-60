@@ -65,7 +65,26 @@ export interface ConstructorOrder {
   categories?: Array<{
     id: number;
     name: string;
+    description?: string;
   }>;
+  // OrderCategories from junction table
+  orderCategories?: Array<{
+    id?: number;
+    orderId?: number;
+    categoryId: number;
+    category?: {
+      id?: number;
+      name: string;
+      description?: string;
+    };
+  }>;
+  // Category IDs for resolution via map
+  categoryIds?: number[];
+  // Contract with categoryIds
+  contract?: {
+    id?: number;
+    categoryIds?: string | number[];
+  };
   status: string;
   statusText?: string;
   totalAmount: number;
