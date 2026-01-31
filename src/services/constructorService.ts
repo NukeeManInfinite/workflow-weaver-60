@@ -82,6 +82,10 @@ export const constructorService = {
     await apiClient.delete(`/Constructor/furniture-types/${id}`);
   },
 
+  async forceDeleteFurnitureType(id: number): Promise<void> {
+    await apiClient.delete(`/Constructor/furniture-types/${id}/force`);
+  },
+
   // ============ DETAILS (Parts) ============
   async getDetails(): Promise<Detail[]> {
     const response = await apiClient.get('/Constructor/details');

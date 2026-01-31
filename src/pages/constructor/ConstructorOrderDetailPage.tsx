@@ -667,6 +667,10 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     }
   };
 
+  // State for force delete confirmation
+  const [forceDeleteModalOpen, setForceDeleteModalOpen] = useState(false);
+  const [forceDeleteTargetId, setForceDeleteTargetId] = useState<number | null>(null);
+
   // Delete mebel (furniture type)
   const handleDeleteMebel = async () => {
     if (!deleteTarget || deleteTarget.type !== 'mebel') return;
@@ -678,9 +682,40 @@ export const ConstructorOrderDetailPage: React.FC = () => {
       setDeleteTarget(null);
       loadOrder();
     } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || '';
+      // Check if it's a locked technical specification error
+      if (errorMessage.includes('locked technical specification') || errorMessage.includes('qulflangan')) {
+        // Close normal delete modal and show force delete confirmation
+        setDeleteModalOpen(false);
+        setForceDeleteTargetId(deleteTarget.id);
+        setForceDeleteModalOpen(true);
+      } else {
+        toast({
+          title: 'Xatolik',
+          description: errorMessage || 'O\'chirishda xatolik',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Force delete mebel (furniture type with locked spec)
+  const handleForceDeleteMebel = async () => {
+    if (!forceDeleteTargetId) return;
+    setDeleting(true);
+    try {
+      await constructorService.forceDeleteFurnitureType(forceDeleteTargetId);
+      toast({ title: 'O\'chirildi', description: 'Qulflangan mebel majburiy o\'chirildi' });
+      setForceDeleteModalOpen(false);
+      setForceDeleteTargetId(null);
+      setDeleteTarget(null);
+      loadOrder();
+    } catch (error: any) {
       toast({
         title: 'Xatolik',
-        description: error?.response?.data?.message || 'O\'chirishda xatolik',
+        description: error?.response?.data?.message || 'Majburiy o\'chirishda xatolik',
         variant: 'destructive',
       });
     } finally {
@@ -1359,6 +1394,31 @@ export const ConstructorOrderDetailPage: React.FC = () => {
             <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteMebel} disabled={deleting}>
               {deleting ? "O'chirilmoqda..." : "O'chirish"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Force Delete Confirmation (for locked furniture types) */}
+      <AlertDialog open={forceDeleteModalOpen} onOpenChange={setForceDeleteModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Qulflangan mebelni o'chirish</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu mebel turi qulflangan texnik spetsifikatsiyaga ega. Haqiqatan ham o'chirmoqchimisiz? Bu amal qaytarib bo'lmaydi.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setForceDeleteModalOpen(false);
+              setForceDeleteTargetId(null);
+            }}>Bekor qilish</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleForceDeleteMebel} 
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "O'chirilmoqda..." : "Ha, o'chirish"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
