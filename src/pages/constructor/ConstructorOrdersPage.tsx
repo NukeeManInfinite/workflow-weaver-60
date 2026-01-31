@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
 import { constructorService } from '@/services/constructorService';
+import { categoryService } from '@/services/categoryService';
 import { ConstructorOrder } from '@/types/constructor';
+import { getOrderCategoryNames, createCategoriesMap } from '@/lib/categoryUtils';
 import {
   Search,
   Clock,
@@ -83,51 +84,27 @@ const getActionButton = (status: string) => {
   }
 };
 
-// Extract category names from order - handles multiple backend formats
-const getCategoryNames = (order: ConstructorOrder): string => {
-  // Priority 1: categories array with objects containing name
-  if (Array.isArray(order.categories) && order.categories.length > 0) {
-    const names = order.categories
-      .map(c => c?.name)
-      .filter(Boolean);
-    if (names.length > 0) return names.join(', ');
-  }
-  
-  // Priority 2: categoryNames as array
-  if (Array.isArray(order.categoryNames) && order.categoryNames.length > 0) {
-    return order.categoryNames.filter(Boolean).join(', ');
-  }
-  
-  // Priority 3: categoryNames as string
-  if (typeof order.categoryNames === 'string' && order.categoryNames.trim()) {
-    return order.categoryNames;
-  }
-  
-  // Priority 4: single categoryName
-  if (order.categoryName && order.categoryName.trim()) {
-    return order.categoryName;
-  }
-  
-  // Priority 5: furnitureTypes names
-  if (Array.isArray(order.furnitureTypes) && order.furnitureTypes.length > 0) {
-    const names = order.furnitureTypes
-      .map(ft => ft?.name)
-      .filter(Boolean);
-    if (names.length > 0) return names.join(', ');
-  }
-  
-  return 'Kategoriya belgilanmagan';
-};
-
 export const ConstructorOrdersPage: React.FC = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [orders, setOrders] = useState<ConstructorOrder[]>([]);
+  const [categoriesMap, setCategoriesMap] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  // Load categories once for ID-to-name resolution
+  const loadCategories = useCallback(async () => {
+    try {
+      const categories = await categoryService.getAll();
+      const map = createCategoriesMap(categories);
+      setCategoriesMap(map);
+      console.log('Categories loaded:', categories.length, 'items');
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  }, []);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -151,15 +128,25 @@ export const ConstructorOrdersPage: React.FC = () => {
     }
   }, [toast]);
 
+  // Load categories first, then orders
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
 
+  // Helper to get category names using the centralized utility
+  const getCategoryDisplay = useCallback((order: ConstructorOrder): string => {
+    return getOrderCategoryNames(order, categoriesMap);
+  }, [categoriesMap]);
+
   // Filter orders based on search and status
-  const getFilteredOrders = () => {
+  const filteredOrders = useMemo(() => {
     let filtered = orders.filter(order => {
       const search = searchTerm.toLowerCase();
-      const categoryName = getCategoryNames(order).toLowerCase();
+      const categoryName = getCategoryDisplay(order).toLowerCase();
       
       return (
         order.orderNumber?.toLowerCase().includes(search) ||
@@ -192,11 +179,9 @@ export const ConstructorOrdersPage: React.FC = () => {
     }
 
     return filtered;
-  };
+  }, [orders, searchTerm, statusFilter, getCategoryDisplay]);
 
-  const filteredOrders = getFilteredOrders();
-
-  // Calculate stats from filtered orders list
+  // Calculate stats from orders list
   const stats = {
     waiting: orders.filter(o => normalizeStatus(o.status) === 'Pending').length,
     inProgress: orders.filter(o => normalizeStatus(o.status) === 'InProgress').length,
@@ -379,8 +364,8 @@ export const ConstructorOrdersPage: React.FC = () => {
               const drawingsCount = order.furnitureTypes?.reduce((acc, ft) => acc + (ft.drawingsCount || 0), 0) || 0;
               const completedCount = order.furnitureTypes?.filter(ft => ft.isCompleted).length || 0;
               
-              // Use centralized category name extraction
-              const categoryName = getCategoryNames(order);
+              // Use centralized category name extraction with ID resolution
+              const categoryName = getCategoryDisplay(order);
               
               // Defensive customer name resolution
               const customerDisplayName = order.customerName || order.contractNumber || `Buyurtma #${order.id}`;
