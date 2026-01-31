@@ -111,6 +111,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           let categoryDisplay = '-';
           if (order.categories && Array.isArray(order.categories) && order.categories.length > 0) {
             categoryDisplay = order.categories.map((cat) => cat.name).join(', ');
+          } else if ((order as any).orderCategories && Array.isArray((order as any).orderCategories) && (order as any).orderCategories.length > 0) {
+            // Handle orderCategories from junction table
+            const names = (order as any).orderCategories
+              .map((oc: any) => oc?.category?.name || oc?.categoryName)
+              .filter((name: string) => Boolean(name && name.trim()));
+            if (names.length > 0) {
+              categoryDisplay = names.join(', ');
+            }
           } else if (order.categoryNames) {
             categoryDisplay = Array.isArray(order.categoryNames)
               ? order.categoryNames.join(', ')

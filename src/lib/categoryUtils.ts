@@ -14,13 +14,18 @@ export interface OrderWithCategories {
   orderNumber?: string;
   categories?: CategoryInfo[];
   orderCategories?: Array<{
+    id?: number;
+    orderId?: number;
     categoryId: number;
-    category?: { id?: number; name: string };
+    categoryName?: string;
+    category?: { id?: number; name: string; description?: string };
   }>;
   categoryNames?: string[] | string;
   categoryIds?: number[];
   categoryName?: string;
+  categoryId?: number | string;
   contract?: {
+    id?: number;
     categoryIds?: string | number[];
   };
 }
@@ -57,14 +62,26 @@ export function getOrderCategoryNames(
     }
   }
 
-  // Priority 2: order.orderCategories [{ categoryId, category: { name } }]
+  // Priority 2: order.orderCategories [{ categoryId, category: { name } }] or [{ categoryId, categoryName }]
   if (order.orderCategories && Array.isArray(order.orderCategories) && order.orderCategories.length > 0) {
+    // Try to get names from category object first, then from categoryName field
     const names = order.orderCategories
-      .map(oc => oc?.category?.name)
+      .map(oc => oc?.category?.name || oc?.categoryName)
       .filter((name): name is string => Boolean(name && name.trim()));
     
     if (names.length > 0) {
       return names.join(', ');
+    }
+    
+    // If no names found but have categoryIds, try to resolve via map
+    if (categoriesMap && categoriesMap.size > 0) {
+      const resolvedNames = order.orderCategories
+        .map(oc => categoriesMap.get(oc.categoryId))
+        .filter((name): name is string => Boolean(name));
+      
+      if (resolvedNames.length > 0) {
+        return resolvedNames.join(', ');
+      }
     }
   }
 
@@ -137,6 +154,21 @@ export function getOrderCategoryNames(
   // Priority 6 (legacy): Single categoryName field
   if (order.categoryName && order.categoryName.trim()) {
     return order.categoryName.trim();
+  }
+
+  // Priority 7: Single categoryId field - resolve via map
+  if (order.categoryId && categoriesMap && categoriesMap.size > 0) {
+    const numId = typeof order.categoryId === 'string' ? parseInt(order.categoryId, 10) : order.categoryId;
+    if (!isNaN(numId)) {
+      const name = categoriesMap.get(numId);
+      if (name) {
+        return name;
+      }
+      console.warn(
+        `Order ${order.id || order.orderNumber}: Could not resolve category name from categoryId:`,
+        order.categoryId
+      );
+    }
   }
 
   // All checks failed - truly no categories
