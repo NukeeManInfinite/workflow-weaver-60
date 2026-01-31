@@ -4,6 +4,8 @@ export interface FurnitureType {
   id: number;
   name: string;
   description?: string;
+  orderId?: number;
+  categoryId?: number;
   constructorId: number;
   constructorName?: string;
   createdAt: string;
@@ -137,6 +139,7 @@ export interface FurnitureTypeSummary {
 export interface CreateFurnitureTypeDto {
   name: string;
   orderId: number;
+  categoryId?: number;
 }
 
 export interface UpdateFurnitureTypeDto {

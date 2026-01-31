@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AppHeader } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -24,7 +22,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { constructorService } from '@/services/constructorService';
 import { templateService } from '@/services/templateService';
-import { ConstructorOrder, FurnitureType, Detail } from '@/types/constructor';
+import { orderCategoriesService } from '@/services/orderCategoriesService';
+import { ConstructorOrder, FurnitureType } from '@/types/constructor';
 import { FurnitureTypeTemplate } from '@/types/template';
 import {
   ArrowLeft,
@@ -33,7 +32,6 @@ import {
   MapPin,
   Calendar,
   Layers,
-  Ruler,
   Tag,
   Plus,
   Trash2,
@@ -43,6 +41,7 @@ import {
   Check,
   X,
   LayoutTemplate,
+  Sofa,
 } from 'lucide-react';
 import {
   Dialog,
@@ -82,13 +81,24 @@ interface DimensionRow {
   isNew?: boolean;
 }
 
-interface CategoryState {
+// Mebel (Furniture type) under a category
+interface MebelState {
   id: number;
   name: string;
+  categoryId: number;
   isOpen: boolean;
   details: DetailEntry[];
   detailsCount: number;
   dimensionsCount: number;
+}
+
+// Category from order - contains mebel (furniture types)
+interface OrderCategoryState {
+  id: number;
+  name: string;
+  description?: string;
+  isOpen: boolean;
+  mebellar: MebelState[]; // Furniture types under this category
 }
 
 const AVAILABLE_MATERIALS = [
@@ -118,21 +128,22 @@ export const ConstructorOrderDetailPage: React.FC = () => {
   const { user } = useAuth();
 
   const [order, setOrder] = useState<ConstructorOrder | null>(null);
-  const [categories, setCategories] = useState<CategoryState[]>([]);
+  const [orderCategories, setOrderCategories] = useState<OrderCategoryState[]>([]);
   const [loading, setLoading] = useState(true);
   const [activityOpen, setActivityOpen] = useState(false);
 
-  // Category modal state
-  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [savingCategory, setSavingCategory] = useState(false);
+  // Mebel (furniture type) modal state
+  const [mebelModalOpen, setMebelModalOpen] = useState(false);
+  const [selectedCategoryForMebel, setSelectedCategoryForMebel] = useState<OrderCategoryState | null>(null);
+  const [newMebelName, setNewMebelName] = useState('');
+  const [savingMebel, setSavingMebel] = useState(false);
   const [availableTemplates, setAvailableTemplates] = useState<FurnitureTypeTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<FurnitureTypeTemplate | null>(null);
   const [templatesLoading, setTemplatesLoading] = useState(false);
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'category' | 'detail'; id: number; catIndex?: number } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'mebel' | 'detail'; id: number } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // Room images
@@ -148,61 +159,120 @@ export const ConstructorOrderDetailPage: React.FC = () => {
       const orderData = await constructorService.getOrderById(Number(id));
       setOrder(orderData);
 
-      // Load furniture types for this order (categories)
+      // 1. Load categories from order (from OrderCategories junction table)
+      let categoriesFromOrder: Array<{ id: number; name: string; description?: string }> = [];
+      
+      // Try order.categories first
+      if (orderData.categories && Array.isArray(orderData.categories) && orderData.categories.length > 0) {
+        categoriesFromOrder = orderData.categories.map(c => ({
+          id: Number(c.id),
+          name: c.name,
+          description: c.description,
+        }));
+      } 
+      // Fallback: fetch from orderCategoriesService
+      else if (orderData.orderCategories && Array.isArray(orderData.orderCategories) && orderData.orderCategories.length > 0) {
+        categoriesFromOrder = orderData.orderCategories.map(oc => ({
+          id: oc.categoryId,
+          name: oc.category?.name || `Kategoriya #${oc.categoryId}`,
+          description: oc.category?.description,
+        }));
+      } else {
+        // Try to fetch from API
+        try {
+          const orderCats = await orderCategoriesService.getCategoriesByOrderId(Number(id));
+          if (orderCats && orderCats.length > 0) {
+            categoriesFromOrder = orderCats.map(oc => ({
+              id: oc.categoryId,
+              name: oc.category?.name || oc.categoryName || `Kategoriya #${oc.categoryId}`,
+              description: oc.category?.description,
+            }));
+          }
+        } catch (err) {
+          console.warn('Failed to fetch order categories:', err);
+        }
+      }
+
+      // 2. Load all furniture types for this order
       const allFurnitureTypes = await constructorService.getFurnitureTypes();
       
-      // Map furniture types to categories with their details
-      const categoryStates: CategoryState[] = await Promise.all(
-        allFurnitureTypes.map(async (ft) => {
-          try {
-            const ftDetails = await constructorService.getDetailsByFurnitureType(ft.id);
-            
-            // Group details by name
-            const groupedDetails: Record<string, DetailEntry> = {};
-            ftDetails.forEach((d) => {
-              if (!groupedDetails[d.name]) {
-                groupedDetails[d.name] = {
-                  id: d.id,
-                  name: d.name,
-                  dimensions: [],
-                  materials: d.material ? [d.material] : [],
-                  notes: d.notes || '',
-                  steps: 0,
+      // Filter furniture types that belong to this order
+      const orderFurnitureTypes = allFurnitureTypes.filter(
+        ft => ft.orderId === Number(id)
+      );
+
+      // 3. Build category states with their mebellar (furniture types)
+      const categoryStates: OrderCategoryState[] = await Promise.all(
+        categoriesFromOrder.map(async (cat) => {
+          // Find furniture types linked to this category
+          const categoryMebellar = orderFurnitureTypes.filter(
+            ft => ft.categoryId === cat.id
+          );
+
+          // Load details for each mebel
+          const mebelStates: MebelState[] = await Promise.all(
+            categoryMebellar.map(async (ft) => {
+              try {
+                const ftDetails = await constructorService.getDetailsByFurnitureType(ft.id);
+                
+                // Group details by name
+                const groupedDetails: Record<string, DetailEntry> = {};
+                ftDetails.forEach((d) => {
+                  if (!groupedDetails[d.name]) {
+                    groupedDetails[d.name] = {
+                      id: d.id,
+                      name: d.name,
+                      dimensions: [],
+                      materials: d.material ? [d.material] : [],
+                      notes: d.notes || '',
+                      steps: 0,
+                    };
+                  }
+                  groupedDetails[d.name].dimensions.push({
+                    id: d.id,
+                    width: d.width,
+                    height: d.height,
+                    thickness: d.thickness,
+                  });
+                });
+
+                const details = Object.values(groupedDetails);
+                const dimensionsCount = details.reduce((acc, d) => acc + d.dimensions.length, 0);
+
+                return {
+                  id: ft.id,
+                  name: ft.name,
+                  categoryId: cat.id,
+                  isOpen: false,
+                  details,
+                  detailsCount: details.length,
+                  dimensionsCount,
+                };
+              } catch {
+                return {
+                  id: ft.id,
+                  name: ft.name,
+                  categoryId: cat.id,
+                  isOpen: false,
+                  details: [],
+                  detailsCount: 0,
+                  dimensionsCount: 0,
                 };
               }
-              groupedDetails[d.name].dimensions.push({
-                id: d.id,
-                width: d.width,
-                height: d.height,
-                thickness: d.thickness,
-              });
-            });
+            })
+          );
 
-            const details = Object.values(groupedDetails);
-            const dimensionsCount = details.reduce((acc, d) => acc + d.dimensions.length, 0);
-
-            return {
-              id: ft.id,
-              name: ft.name,
-              isOpen: false,
-              details,
-              detailsCount: details.length,
-              dimensionsCount,
-            };
-          } catch {
-            return {
-              id: ft.id,
-              name: ft.name,
-              isOpen: false,
-              details: [],
-              detailsCount: 0,
-              dimensionsCount: 0,
-            };
-          }
+          return {
+            id: cat.id,
+            name: cat.name,
+            description: cat.description,
+            isOpen: true, // Open by default to show mebellar
+            mebellar: mebelStates,
+          };
         })
       );
 
-      setCategories(categoryStates);
+      setOrderCategories(categoryStates);
     } catch (error: any) {
       console.error('Failed to load order:', error);
       toast({
@@ -219,135 +289,166 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     loadOrder();
   }, [loadOrder]);
 
-  const toggleCategory = (index: number) => {
-    setCategories(prev => prev.map((cat, i) => 
-      i === index ? { ...cat, isOpen: !cat.isOpen } : cat
+  const toggleCategory = (catIndex: number) => {
+    setOrderCategories(prev => prev.map((cat, i) => 
+      i === catIndex ? { ...cat, isOpen: !cat.isOpen } : cat
     ));
   };
 
+  const toggleMebel = (catIndex: number, mebelIndex: number) => {
+    setOrderCategories(prev => prev.map((cat, ci) => {
+      if (ci !== catIndex) return cat;
+      return {
+        ...cat,
+        mebellar: cat.mebellar.map((m, mi) => 
+          mi === mebelIndex ? { ...m, isOpen: !m.isOpen } : m
+        ),
+      };
+    }));
+  };
+
   // Load templates when modal opens
-  const loadTemplates = useCallback(async () => {
-    if (!order) return;
+  const loadTemplates = useCallback(async (categoryId: number) => {
     setTemplatesLoading(true);
     try {
-      // Try to get categoryId from order
-      const categoryId = order.categories?.[0]?.id || 
-                         (order.categoryNames && Array.isArray(order.categoryNames) ? 1 : 0);
-      if (categoryId) {
-        const templates = await templateService.getActiveByCategoryId(categoryId);
-        setAvailableTemplates(templates);
-      }
+      const templates = await templateService.getActiveByCategoryId(categoryId);
+      setAvailableTemplates(templates);
     } catch (error) {
       console.error('Failed to load templates:', error);
       setAvailableTemplates([]);
     } finally {
       setTemplatesLoading(false);
     }
-  }, [order]);
+  }, []);
 
-  const handleOpenCategoryModal = () => {
-    setNewCategoryName('');
+  const handleOpenMebelModal = (category: OrderCategoryState) => {
+    setSelectedCategoryForMebel(category);
+    setNewMebelName('');
     setSelectedTemplate(null);
-    setCategoryModalOpen(true);
-    loadTemplates();
+    setMebelModalOpen(true);
+    loadTemplates(category.id);
   };
 
   const handleSelectTemplate = (template: FurnitureTypeTemplate) => {
     setSelectedTemplate(template);
-    setNewCategoryName(template.name);
+    setNewMebelName(template.name);
   };
 
-  // Add new category (furniture type)
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim() || !id) return;
-    setSavingCategory(true);
+  // Add new mebel (furniture type) to category
+  const handleAddMebel = async () => {
+    if (!newMebelName.trim() || !id || !selectedCategoryForMebel) return;
+    setSavingMebel(true);
     try {
-      await constructorService.createFurnitureType({ name: newCategoryName, orderId: Number(id) });
-      toast({ title: 'Muvaffaqiyat', description: 'Kategoriya qo\'shildi' });
-      setCategoryModalOpen(false);
-      setNewCategoryName('');
+      await constructorService.createFurnitureType({ 
+        name: newMebelName, 
+        orderId: Number(id),
+        categoryId: selectedCategoryForMebel.id,
+      });
+      toast({ title: 'Muvaffaqiyat', description: 'Mebel qo\'shildi' });
+      setMebelModalOpen(false);
+      setNewMebelName('');
       setSelectedTemplate(null);
+      setSelectedCategoryForMebel(null);
       loadOrder();
     } catch (error: any) {
       toast({
         title: 'Xatolik',
-        description: error?.response?.data?.message || 'Kategoriya qo\'shishda xatolik',
+        description: error?.response?.data?.message || 'Mebel qo\'shishda xatolik',
         variant: 'destructive',
       });
     } finally {
-      setSavingCategory(false);
+      setSavingMebel(false);
     }
   };
 
-  // Add new detail to category
-  const handleAddDetail = (categoryIndex: number, detailName: string) => {
+  // Add new detail to mebel
+  const handleAddDetail = (catIndex: number, mebelIndex: number, detailName: string) => {
     if (!detailName.trim()) return;
     
-    setCategories(prev => prev.map((cat, i) => {
-      if (i !== categoryIndex) return cat;
-      
-      const existingDetail = cat.details.find(d => d.name === detailName);
-      if (existingDetail) {
-        toast({ title: 'Bu detal allaqachon mavjud', variant: 'destructive' });
-        return cat;
-      }
-      
+    setOrderCategories(prev => prev.map((cat, ci) => {
+      if (ci !== catIndex) return cat;
       return {
         ...cat,
-        details: [
-          ...cat.details,
-          {
-            name: detailName,
-            dimensions: [{ width: 0, height: 0, thickness: 18, isNew: true }],
-            materials: [],
-            notes: '',
-            steps: 2,
-            isNew: true,
-          },
-        ],
-        detailsCount: cat.detailsCount + 1,
-        dimensionsCount: cat.dimensionsCount + 1,
+        mebellar: cat.mebellar.map((mebel, mi) => {
+          if (mi !== mebelIndex) return mebel;
+          
+          const existingDetail = mebel.details.find(d => d.name === detailName);
+          if (existingDetail) {
+            toast({ title: 'Bu detal allaqachon mavjud', variant: 'destructive' });
+            return mebel;
+          }
+          
+          return {
+            ...mebel,
+            details: [
+              ...mebel.details,
+              {
+                name: detailName,
+                dimensions: [{ width: 0, height: 0, thickness: 18, isNew: true }],
+                materials: [],
+                notes: '',
+                steps: 2,
+                isNew: true,
+              },
+            ],
+            detailsCount: mebel.detailsCount + 1,
+            dimensionsCount: mebel.dimensionsCount + 1,
+          };
+        }),
       };
     }));
   };
 
   // Add dimension row to detail
-  const handleAddDimension = (categoryIndex: number, detailIndex: number) => {
-    setCategories(prev => prev.map((cat, i) => {
-      if (i !== categoryIndex) return cat;
+  const handleAddDimension = (catIndex: number, mebelIndex: number, detailIndex: number) => {
+    setOrderCategories(prev => prev.map((cat, ci) => {
+      if (ci !== catIndex) return cat;
       return {
         ...cat,
-        details: cat.details.map((det, di) => {
-          if (di !== detailIndex) return det;
+        mebellar: cat.mebellar.map((mebel, mi) => {
+          if (mi !== mebelIndex) return mebel;
           return {
-            ...det,
-            dimensions: [...det.dimensions, { width: 0, height: 0, thickness: 18, isNew: true }],
+            ...mebel,
+            details: mebel.details.map((det, di) => {
+              if (di !== detailIndex) return det;
+              return {
+                ...det,
+                dimensions: [...det.dimensions, { width: 0, height: 0, thickness: 18, isNew: true }],
+              };
+            }),
+            dimensionsCount: mebel.dimensionsCount + 1,
           };
         }),
-        dimensionsCount: cat.dimensionsCount + 1,
       };
     }));
   };
 
   // Update dimension
   const handleUpdateDimension = (
-    categoryIndex: number, 
+    catIndex: number,
+    mebelIndex: number,
     detailIndex: number, 
     dimIndex: number, 
     field: keyof DimensionRow, 
     value: number
   ) => {
-    setCategories(prev => prev.map((cat, i) => {
-      if (i !== categoryIndex) return cat;
+    setOrderCategories(prev => prev.map((cat, ci) => {
+      if (ci !== catIndex) return cat;
       return {
         ...cat,
-        details: cat.details.map((det, di) => {
-          if (di !== detailIndex) return det;
+        mebellar: cat.mebellar.map((mebel, mi) => {
+          if (mi !== mebelIndex) return mebel;
           return {
-            ...det,
-            dimensions: det.dimensions.map((dim, dmi) => {
-              if (dmi !== dimIndex) return dim;
-              return { ...dim, [field]: value };
+            ...mebel,
+            details: mebel.details.map((det, di) => {
+              if (di !== detailIndex) return det;
+              return {
+                ...det,
+                dimensions: det.dimensions.map((dim, dmi) => {
+                  if (dmi !== dimIndex) return dim;
+                  return { ...dim, [field]: value };
+                }),
+              };
             }),
           };
         }),
@@ -356,47 +457,58 @@ export const ConstructorOrderDetailPage: React.FC = () => {
   };
 
   // Remove dimension
-  const handleRemoveDimension = (categoryIndex: number, detailIndex: number, dimIndex: number) => {
-    setCategories(prev => prev.map((cat, i) => {
-      if (i !== categoryIndex) return cat;
-      const detail = cat.details[detailIndex];
-      if (detail.dimensions.length <= 1) {
-        // If only one dimension left, remove the entire detail
-        return {
-          ...cat,
-          details: cat.details.filter((_, di) => di !== detailIndex),
-          detailsCount: cat.detailsCount - 1,
-          dimensionsCount: cat.dimensionsCount - 1,
-        };
-      }
+  const handleRemoveDimension = (catIndex: number, mebelIndex: number, detailIndex: number, dimIndex: number) => {
+    setOrderCategories(prev => prev.map((cat, ci) => {
+      if (ci !== catIndex) return cat;
       return {
         ...cat,
-        details: cat.details.map((det, di) => {
-          if (di !== detailIndex) return det;
+        mebellar: cat.mebellar.map((mebel, mi) => {
+          if (mi !== mebelIndex) return mebel;
+          const detail = mebel.details[detailIndex];
+          if (detail.dimensions.length <= 1) {
+            return {
+              ...mebel,
+              details: mebel.details.filter((_, di) => di !== detailIndex),
+              detailsCount: mebel.detailsCount - 1,
+              dimensionsCount: mebel.dimensionsCount - 1,
+            };
+          }
           return {
-            ...det,
-            dimensions: det.dimensions.filter((_, dmi) => dmi !== dimIndex),
+            ...mebel,
+            details: mebel.details.map((det, di) => {
+              if (di !== detailIndex) return det;
+              return {
+                ...det,
+                dimensions: det.dimensions.filter((_, dmi) => dmi !== dimIndex),
+              };
+            }),
+            dimensionsCount: mebel.dimensionsCount - 1,
           };
         }),
-        dimensionsCount: cat.dimensionsCount - 1,
       };
     }));
   };
 
   // Toggle material
-  const handleToggleMaterial = (categoryIndex: number, detailIndex: number, material: string) => {
-    setCategories(prev => prev.map((cat, i) => {
-      if (i !== categoryIndex) return cat;
+  const handleToggleMaterial = (catIndex: number, mebelIndex: number, detailIndex: number, material: string) => {
+    setOrderCategories(prev => prev.map((cat, ci) => {
+      if (ci !== catIndex) return cat;
       return {
         ...cat,
-        details: cat.details.map((det, di) => {
-          if (di !== detailIndex) return det;
-          const hasMaterial = det.materials.includes(material);
+        mebellar: cat.mebellar.map((mebel, mi) => {
+          if (mi !== mebelIndex) return mebel;
           return {
-            ...det,
-            materials: hasMaterial 
-              ? det.materials.filter(m => m !== material)
-              : [...det.materials, material],
+            ...mebel,
+            details: mebel.details.map((det, di) => {
+              if (di !== detailIndex) return det;
+              const hasMaterial = det.materials.includes(material);
+              return {
+                ...det,
+                materials: hasMaterial 
+                  ? det.materials.filter(m => m !== material)
+                  : [...det.materials, material],
+              };
+            }),
           };
         }),
       };
@@ -404,23 +516,30 @@ export const ConstructorOrderDetailPage: React.FC = () => {
   };
 
   // Update notes
-  const handleUpdateNotes = (categoryIndex: number, detailIndex: number, notes: string) => {
-    setCategories(prev => prev.map((cat, i) => {
-      if (i !== categoryIndex) return cat;
+  const handleUpdateNotes = (catIndex: number, mebelIndex: number, detailIndex: number, notes: string) => {
+    setOrderCategories(prev => prev.map((cat, ci) => {
+      if (ci !== catIndex) return cat;
       return {
         ...cat,
-        details: cat.details.map((det, di) => {
-          if (di !== detailIndex) return det;
-          return { ...det, notes };
+        mebellar: cat.mebellar.map((mebel, mi) => {
+          if (mi !== mebelIndex) return mebel;
+          return {
+            ...mebel,
+            details: mebel.details.map((det, di) => {
+              if (di !== detailIndex) return det;
+              return { ...det, notes };
+            }),
+          };
         }),
       };
     }));
   };
 
   // Save detail to backend
-  const handleSaveDetail = async (categoryIndex: number, detailIndex: number) => {
-    const category = categories[categoryIndex];
-    const detail = category.details[detailIndex];
+  const handleSaveDetail = async (catIndex: number, mebelIndex: number, detailIndex: number) => {
+    const mebel = orderCategories[catIndex]?.mebellar[mebelIndex];
+    if (!mebel) return;
+    const detail = mebel.details[detailIndex];
 
     for (const dim of detail.dimensions) {
       if (dim.width <= 0 || dim.height <= 0 || dim.thickness <= 0) {
@@ -430,11 +549,10 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     }
 
     try {
-      // Save each dimension as a separate detail entry
       for (const dim of detail.dimensions) {
         if (dim.isNew || !dim.id) {
           await constructorService.createDetail({
-            furnitureTypeId: category.id,
+            furnitureTypeId: mebel.id,
             name: detail.name,
             material: detail.materials.join(', ') || 'Noma\'lum',
             width: dim.width,
@@ -467,13 +585,13 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     }
   };
 
-  // Delete category
-  const handleDeleteCategory = async () => {
-    if (!deleteTarget || deleteTarget.type !== 'category') return;
+  // Delete mebel (furniture type)
+  const handleDeleteMebel = async () => {
+    if (!deleteTarget || deleteTarget.type !== 'mebel') return;
     setDeleting(true);
     try {
       await constructorService.deleteFurnitureType(deleteTarget.id);
-      toast({ title: 'O\'chirildi', description: 'Kategoriya o\'chirildi' });
+      toast({ title: 'O\'chirildi', description: 'Mebel o\'chirildi' });
       setDeleteModalOpen(false);
       setDeleteTarget(null);
       loadOrder();
@@ -499,45 +617,44 @@ export const ConstructorOrderDetailPage: React.FC = () => {
     }
   };
 
-  // Complete order - use the new completeFurnitureTypeWithData endpoint
+  // Complete order
   const handleCompleteOrder = async () => {
-    // For each category, collect all details and send to backend
-    for (const cat of categories) {
-      try {
-        // Convert details to the format expected by the backend
-        const detailsPayload = cat.details.flatMap(detail => 
-          detail.dimensions.map(dim => ({
-            name: detail.name,
-            width: dim.width,
-            height: dim.height,
-            thickness: dim.thickness,
-            quantity: 1,
-            material: detail.materials.join(', ') || 'MDF',
-            notes: detail.notes || '',
-          }))
-        );
+    for (const cat of orderCategories) {
+      for (const mebel of cat.mebellar) {
+        try {
+          const detailsPayload = mebel.details.flatMap(detail => 
+            detail.dimensions.map(dim => ({
+              name: detail.name,
+              width: dim.width,
+              height: dim.height,
+              thickness: dim.thickness,
+              quantity: 1,
+              material: detail.materials.join(', ') || 'MDF',
+              notes: detail.notes || '',
+            }))
+          );
 
-        // Collect all notes from details
-        const allNotes = cat.details
-          .map(d => d.notes)
-          .filter(Boolean)
-          .join('\n') || 'Texnik xususiyatlar';
+          const allNotes = mebel.details
+            .map(d => d.notes)
+            .filter(Boolean)
+            .join('\n') || 'Texnik xususiyatlar';
 
-        await constructorService.completeFurnitureTypeWithData(cat.id, {
-          details: detailsPayload,
-          notes: allNotes,
-        });
-      } catch (error) {
-        console.error('Failed to complete category:', cat.id, error);
-        toast({
-          title: 'Xatolik',
-          description: `Kategoriya ${cat.name} ni saqlashda xatolik`,
-          variant: 'destructive',
-        });
-        return; // Stop if any category fails
+          await constructorService.completeFurnitureTypeWithData(mebel.id, {
+            details: detailsPayload,
+            notes: allNotes,
+          });
+        } catch (error) {
+          console.error('Failed to complete mebel:', mebel.id, error);
+          toast({
+            title: 'Xatolik',
+            description: `Mebel ${mebel.name} ni saqlashda xatolik`,
+            variant: 'destructive',
+          });
+          return;
+        }
       }
     }
-    toast({ title: 'Muvaffaqiyat', description: 'Mebel turi to\'ldirildi!' });
+    toast({ title: 'Muvaffaqiyat', description: 'Razmerlar tayyor!' });
     navigate('/constructor/orders');
   };
 
@@ -582,13 +699,11 @@ export const ConstructorOrderDetailPage: React.FC = () => {
   }
 
   const deadlineInfo = getDeadlineInfo(order.deadline);
-  const totalDetails = categories.reduce((acc, c) => acc + c.detailsCount, 0);
-  const totalDimensions = categories.reduce((acc, c) => acc + c.dimensionsCount, 0);
-
-  // Get category name
-  const categoryName = Array.isArray(order.categoryNames) 
-    ? order.categoryNames[0] 
-    : (order.categoryName || order.furnitureTypes?.[0]?.name || '');
+  const totalMebellar = orderCategories.reduce((acc, c) => acc + c.mebellar.length, 0);
+  const totalDetails = orderCategories.reduce((acc, c) => 
+    acc + c.mebellar.reduce((a, m) => a + m.detailsCount, 0), 0);
+  const totalDimensions = orderCategories.reduce((acc, c) => 
+    acc + c.mebellar.reduce((a, m) => a + m.dimensionsCount, 0), 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -603,8 +718,7 @@ export const ConstructorOrderDetailPage: React.FC = () => {
               Buyurtma #{order.orderNumber?.split('-').pop() || order.id}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {categoryName && `${categoryName} • `}
-              {categories.length} kategoriya • {totalDetails} detal • {totalDimensions} razmer
+              {orderCategories.length} kategoriya • {totalMebellar} mebel • {totalDetails} detal • {totalDimensions} razmer
             </p>
           </div>
         </div>
@@ -621,7 +735,7 @@ export const ConstructorOrderDetailPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Mijoz nomi</p>
-                <p className="font-medium">{order.customerName}</p>
+                <p className="font-medium">{order.customerName || 'Noma\'lum'}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Telefon</p>
@@ -663,27 +777,27 @@ export const ConstructorOrderDetailPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">
+                  <Sofa className="h-3 w-3 inline mr-1" /> {totalMebellar} mebel
+                </span>
+                <span className="text-sm text-muted-foreground">
                   <Layers className="h-3 w-3 inline mr-1" /> {totalDetails} detal
                 </span>
                 <span className="text-sm text-muted-foreground">
                   <Tag className="h-3 w-3 inline mr-1" /> {totalDimensions} razmer
                 </span>
-                <Button size="sm" onClick={handleOpenCategoryModal}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Kategoriya
-                </Button>
               </div>
             </div>
 
-            {/* Category List */}
+            {/* Category List - loaded from order */}
             <div className="space-y-3">
-              {categories.length === 0 ? (
+              {orderCategories.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Layers className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>Hali kategoriya qo'shilmagan</p>
+                  <p>Bu buyurtmada kategoriya yo'q</p>
+                  <p className="text-xs mt-1">Kategoriyalar shartnoma orqali belgilanadi</p>
                 </div>
               ) : (
-                categories.map((category, catIndex) => (
+                orderCategories.map((category, catIndex) => (
                   <Collapsible
                     key={category.id}
                     open={category.isOpen}
@@ -699,23 +813,20 @@ export const ConstructorOrderDetailPage: React.FC = () => {
                               </span>
                               <span className="font-medium">{category.name}</span>
                               <Badge variant="outline" className="text-xs">
-                                <Layers className="h-3 w-3 mr-1" /> {category.detailsCount} detal
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                <Tag className="h-3 w-3 mr-1" /> {category.dimensionsCount} razmer
+                                <Sofa className="h-3 w-3 mr-1" /> {category.mebellar.length} mebel
                               </Badge>
                             </div>
                             <div className="flex items-center gap-2">
                               <Button 
-                                variant="ghost" 
-                                size="icon"
+                                variant="default" 
+                                size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setDeleteTarget({ type: 'category', id: category.id });
-                                  setDeleteModalOpen(true);
+                                  handleOpenMebelModal(category);
                                 }}
                               >
-                                <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                <Plus className="h-4 w-4 mr-1" />
+                                Mebel
                               </Button>
                               <ChevronDown className={`h-4 w-4 transition-transform ${category.isOpen ? 'rotate-180' : ''}`} />
                             </div>
@@ -724,174 +835,211 @@ export const ConstructorOrderDetailPage: React.FC = () => {
                       </CollapsibleTrigger>
 
                       <CollapsibleContent>
-                        <div className="border-t p-4 space-y-4 bg-muted/20">
-                          {/* Add Detail Section */}
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium">Detal qo'shish</Label>
-                            <div className="flex gap-2">
-                              <Select onValueChange={(v) => handleAddDetail(catIndex, v)}>
-                                <SelectTrigger className="flex-1">
-                                  <SelectValue placeholder="Detal nomini tanlang..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {DETAIL_NAMES.filter(n => !category.details.some(d => d.name === n)).map(name => (
-                                    <SelectItem key={name} value={name}>{name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Button variant="default" onClick={() => {
-                                const customName = prompt('Yangi detal nomi:');
-                                if (customName) handleAddDetail(catIndex, customName);
-                              }}>
+                        <div className="border-t p-4 space-y-3 bg-muted/20">
+                          {category.mebellar.length === 0 ? (
+                            <div className="text-center py-4 text-muted-foreground">
+                              <Sofa className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                              <p className="text-sm">Hali mebel qo'shilmagan</p>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="mt-2"
+                                onClick={() => handleOpenMebelModal(category)}
+                              >
                                 <Plus className="h-4 w-4 mr-1" />
-                                Yangi detal nomi
+                                Mebel qo'shish
                               </Button>
                             </div>
-                          </div>
+                          ) : (
+                            category.mebellar.map((mebel, mebelIndex) => (
+                              <Collapsible
+                                key={mebel.id}
+                                open={mebel.isOpen}
+                                onOpenChange={() => toggleMebel(catIndex, mebelIndex)}
+                              >
+                                <Card className="border-2 border-dashed">
+                                  <CollapsibleTrigger asChild>
+                                    <CardContent className="p-3 cursor-pointer hover:bg-muted/30 transition-colors">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                          <Sofa className="h-4 w-4 text-primary" />
+                                          <span className="font-medium">{mebel.name}</span>
+                                          <Badge variant="secondary" className="text-xs">
+                                            {mebel.detailsCount} detal
+                                          </Badge>
+                                          <Badge variant="secondary" className="text-xs">
+                                            {mebel.dimensionsCount} razmer
+                                          </Badge>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Button 
+                                            variant="ghost" 
+                                            size="icon"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setDeleteTarget({ type: 'mebel', id: mebel.id });
+                                              setDeleteModalOpen(true);
+                                            }}
+                                          >
+                                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                          </Button>
+                                          <ChevronDown className={`h-4 w-4 transition-transform ${mebel.isOpen ? 'rotate-180' : ''}`} />
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </CollapsibleTrigger>
 
-                          {/* Details List */}
-                          {category.details.map((detail, detIndex) => (
-                            <Card key={`${detail.name}-${detIndex}`} className="border-2 border-dashed">
-                              <CardContent className="p-4 space-y-4">
-                                {/* Detail Header */}
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <span className="h-5 w-5 rounded bg-muted text-muted-foreground text-xs font-medium flex items-center justify-center">
-                                      {detIndex + 1}
-                                    </span>
-                                    <span className="font-medium">{detail.name}</span>
-                                    <span className="text-sm text-muted-foreground">{detail.dimensions.length} razmer</span>
-                                    {detail.steps > 0 && (
-                                      <Badge variant="secondary" className="text-xs">{detail.steps} bosqich</Badge>
-                                    )}
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => {
-                                      setCategories(prev => prev.map((cat, i) => {
-                                        if (i !== catIndex) return cat;
-                                        return {
-                                          ...cat,
-                                          details: cat.details.filter((_, di) => di !== detIndex),
-                                          detailsCount: cat.detailsCount - 1,
-                                          dimensionsCount: cat.dimensionsCount - detail.dimensions.length,
-                                        };
-                                      }));
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                                  </Button>
-                                </div>
+                                  <CollapsibleContent>
+                                    <div className="border-t p-4 space-y-4 bg-background">
+                                      {/* Add Detail Section */}
+                                      <div className="space-y-2">
+                                        <Label className="text-sm font-medium">Detal qo'shish</Label>
+                                        <div className="flex gap-2">
+                                          <Select onValueChange={(v) => handleAddDetail(catIndex, mebelIndex, v)}>
+                                            <SelectTrigger className="flex-1">
+                                              <SelectValue placeholder="Detal nomini tanlang..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {DETAIL_NAMES.filter(n => !mebel.details.some(d => d.name === n)).map(name => (
+                                                <SelectItem key={name} value={name}>{name}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                          <Button variant="default" onClick={() => {
+                                            const customName = prompt('Yangi detal nomi:');
+                                            if (customName) handleAddDetail(catIndex, mebelIndex, customName);
+                                          }}>
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            Yangi
+                                          </Button>
+                                        </div>
+                                      </div>
 
-                                {/* Dimensions */}
-                                <div className="space-y-2">
-                                  <Label className="text-xs text-muted-foreground uppercase">Razmerlar</Label>
-                                  {detail.dimensions.map((dim, dimIndex) => (
-                                    <div key={dimIndex} className="flex items-center gap-2">
-                                      <span className="h-6 w-6 rounded bg-primary/10 text-primary text-xs font-medium flex items-center justify-center">
-                                        {dimIndex + 1}
-                                      </span>
-                                      <Input
-                                        type="number"
-                                        value={dim.width || ''}
-                                        onChange={(e) => handleUpdateDimension(catIndex, detIndex, dimIndex, 'width', Number(e.target.value))}
-                                        placeholder="Eni"
-                                        className="w-24 h-8 text-sm"
-                                      />
-                                      <span className="text-muted-foreground">mm</span>
-                                      <span className="text-muted-foreground">x</span>
-                                      <Input
-                                        type="number"
-                                        value={dim.height || ''}
-                                        onChange={(e) => handleUpdateDimension(catIndex, detIndex, dimIndex, 'height', Number(e.target.value))}
-                                        placeholder="Bo'yi"
-                                        className="w-24 h-8 text-sm"
-                                      />
-                                      <span className="text-muted-foreground">mm</span>
-                                      <span className="text-muted-foreground">x</span>
-                                      <Input
-                                        type="number"
-                                        value={dim.thickness || ''}
-                                        onChange={(e) => handleUpdateDimension(catIndex, detIndex, dimIndex, 'thickness', Number(e.target.value))}
-                                        placeholder="Qalinligi"
-                                        className="w-20 h-8 text-sm"
-                                      />
-                                      <span className="text-muted-foreground">mm</span>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() => handleRemoveDimension(catIndex, detIndex, dimIndex)}
-                                      >
-                                        <X className="h-4 w-4 text-muted-foreground" />
-                                      </Button>
+                                      {/* Details List */}
+                                      {mebel.details.map((detail, detIndex) => (
+                                        <Card key={`${detail.name}-${detIndex}`} className="border">
+                                          <CardContent className="p-4 space-y-4">
+                                            {/* Detail Header */}
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center gap-2">
+                                                <span className="h-5 w-5 rounded bg-muted text-muted-foreground text-xs font-medium flex items-center justify-center">
+                                                  {detIndex + 1}
+                                                </span>
+                                                <span className="font-medium">{detail.name}</span>
+                                                <span className="text-sm text-muted-foreground">{detail.dimensions.length} razmer</span>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <Button
+                                                  variant="default"
+                                                  size="sm"
+                                                  onClick={() => handleSaveDetail(catIndex, mebelIndex, detIndex)}
+                                                >
+                                                  <Check className="h-4 w-4 mr-1" />
+                                                  Saqlash
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  onClick={() => {
+                                                    setOrderCategories(prev => prev.map((cat, ci) => {
+                                                      if (ci !== catIndex) return cat;
+                                                      return {
+                                                        ...cat,
+                                                        mebellar: cat.mebellar.map((m, mi) => {
+                                                          if (mi !== mebelIndex) return m;
+                                                          return {
+                                                            ...m,
+                                                            details: m.details.filter((_, di) => di !== detIndex),
+                                                            detailsCount: m.detailsCount - 1,
+                                                            dimensionsCount: m.dimensionsCount - detail.dimensions.length,
+                                                          };
+                                                        }),
+                                                      };
+                                                    }));
+                                                  }}
+                                                >
+                                                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                                </Button>
+                                              </div>
+                                            </div>
+
+                                            {/* Dimensions */}
+                                            <div className="space-y-2">
+                                              <Label className="text-xs text-muted-foreground uppercase">Razmerlar</Label>
+                                              {detail.dimensions.map((dim, dimIndex) => (
+                                                <div key={dimIndex} className="flex items-center gap-2">
+                                                  <span className="h-6 w-6 rounded bg-primary/10 text-primary text-xs font-medium flex items-center justify-center">
+                                                    {dimIndex + 1}
+                                                  </span>
+                                                  <Input
+                                                    type="number"
+                                                    value={dim.width || ''}
+                                                    onChange={(e) => handleUpdateDimension(catIndex, mebelIndex, detIndex, dimIndex, 'width', Number(e.target.value))}
+                                                    placeholder="Eni"
+                                                    className="w-24 h-8 text-sm"
+                                                  />
+                                                  <span className="text-muted-foreground">x</span>
+                                                  <Input
+                                                    type="number"
+                                                    value={dim.height || ''}
+                                                    onChange={(e) => handleUpdateDimension(catIndex, mebelIndex, detIndex, dimIndex, 'height', Number(e.target.value))}
+                                                    placeholder="Bo'yi"
+                                                    className="w-24 h-8 text-sm"
+                                                  />
+                                                  <span className="text-muted-foreground">x</span>
+                                                  <Input
+                                                    type="number"
+                                                    value={dim.thickness || ''}
+                                                    onChange={(e) => handleUpdateDimension(catIndex, mebelIndex, detIndex, dimIndex, 'thickness', Number(e.target.value))}
+                                                    placeholder="Qalinligi"
+                                                    className="w-20 h-8 text-sm"
+                                                  />
+                                                  <span className="text-xs text-muted-foreground">mm</span>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => handleRemoveDimension(catIndex, mebelIndex, detIndex, dimIndex)}
+                                                  >
+                                                    <X className="h-4 w-4 text-muted-foreground" />
+                                                  </Button>
+                                                </div>
+                                              ))}
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleAddDimension(catIndex, mebelIndex, detIndex)}
+                                              >
+                                                <Plus className="h-4 w-4 mr-1" />
+                                                Razmer qo'shish
+                                              </Button>
+                                            </div>
+
+                                            {/* Materials */}
+                                            <div className="space-y-2">
+                                              <Label className="text-xs text-muted-foreground uppercase">Materiallar</Label>
+                                              <div className="flex flex-wrap gap-2">
+                                                {AVAILABLE_MATERIALS.map((mat) => (
+                                                  <Badge
+                                                    key={mat}
+                                                    variant={detail.materials.includes(mat) ? 'default' : 'outline'}
+                                                    className="cursor-pointer"
+                                                    onClick={() => handleToggleMaterial(catIndex, mebelIndex, detIndex, mat)}
+                                                  >
+                                                    {mat}
+                                                  </Badge>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          </CardContent>
+                                        </Card>
+                                      ))}
                                     </div>
-                                  ))}
-                                  
-                                  {/* Add dimension input */}
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Input
-                                      placeholder="300mm x 150mm yoki 300 x 150 x 18 mm"
-                                      className="flex-1 h-8 text-sm"
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          handleAddDimension(catIndex, detIndex);
-                                        }
-                                      }}
-                                    />
-                                    <Button
-                                      variant="secondary"
-                                      size="sm"
-                                      onClick={() => handleAddDimension(catIndex, detIndex)}
-                                    >
-                                      <Plus className="h-4 w-4 mr-1" />
-                                      Razmer
-                                    </Button>
-                                  </div>
-                                </div>
-
-                                {/* Materials */}
-                                <div className="space-y-2">
-                                  <Label className="text-xs text-muted-foreground uppercase">Materiallar</Label>
-                                  <div className="flex flex-wrap gap-2">
-                                    {detail.materials.map((mat, mi) => (
-                                      <Badge 
-                                        key={mi} 
-                                        variant="secondary"
-                                        className="cursor-pointer"
-                                        onClick={() => handleToggleMaterial(catIndex, detIndex, mat)}
-                                      >
-                                        {mat}
-                                        <X className="h-3 w-3 ml-1" />
-                                      </Badge>
-                                    ))}
-                                    <Select onValueChange={(v) => handleToggleMaterial(catIndex, detIndex, v)}>
-                                      <SelectTrigger className="w-[160px] h-7 text-xs">
-                                        <SelectValue placeholder="Material qo'shish..." />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {AVAILABLE_MATERIALS.filter(m => !detail.materials.includes(m)).map(mat => (
-                                          <SelectItem key={mat} value={mat} className="text-xs">{mat}</SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                </div>
-
-                                {/* Notes */}
-                                <div className="space-y-2">
-                                  <Label className="text-xs text-muted-foreground uppercase">Texnik izohlar</Label>
-                                  <Textarea
-                                    value={detail.notes}
-                                    onChange={(e) => handleUpdateNotes(catIndex, detIndex, e.target.value)}
-                                    placeholder="Ko'zgu bilan, ichki yorug'lik..."
-                                    className="text-sm min-h-[60px]"
-                                  />
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
+                                  </CollapsibleContent>
+                                </Card>
+                              </Collapsible>
+                            ))
+                          )}
                         </div>
                       </CollapsibleContent>
                     </Card>
@@ -1014,11 +1162,18 @@ export const ConstructorOrderDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Add Category Modal */}
-      <Dialog open={categoryModalOpen} onOpenChange={setCategoryModalOpen}>
+      {/* Add Mebel Modal */}
+      <Dialog open={mebelModalOpen} onOpenChange={setMebelModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Yangi kategoriya qo'shish</DialogTitle>
+            <DialogTitle>
+              Yangi mebel qo'shish
+              {selectedCategoryForMebel && (
+                <span className="text-muted-foreground font-normal ml-2">
+                  ({selectedCategoryForMebel.name})
+                </span>
+              )}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Template Selection */}
@@ -1049,11 +1204,6 @@ export const ConstructorOrderDetailPage: React.FC = () => {
                               {template.description}
                             </p>
                           )}
-                          {template.defaultMaterial && (
-                            <Badge variant="secondary" className="mt-2 text-xs">
-                              {template.defaultMaterial}
-                            </Badge>
-                          )}
                         </div>
                         {selectedTemplate?.id === template.id && (
                           <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
@@ -1068,7 +1218,7 @@ export const ConstructorOrderDetailPage: React.FC = () => {
                   className="w-full"
                   onClick={() => {
                     setSelectedTemplate(null);
-                    setNewCategoryName('');
+                    setNewMebelName('');
                   }}
                 >
                   <LayoutTemplate className="h-4 w-4 mr-2" />
@@ -1082,40 +1232,27 @@ export const ConstructorOrderDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Category Name Input */}
+            {/* Mebel Name Input */}
             <div>
-              <Label>Kategoriya nomi</Label>
+              <Label>Mebel nomi</Label>
               <Input
-                value={newCategoryName}
+                value={newMebelName}
                 onChange={(e) => {
-                  setNewCategoryName(e.target.value);
+                  setNewMebelName(e.target.value);
                   if (selectedTemplate && e.target.value !== selectedTemplate.name) {
                     setSelectedTemplate(null);
                   }
                 }}
-                placeholder="Masalan: Shkaf-kupe"
+                placeholder="Masalan: Shkaf-kupe, Krovat, Stol..."
               />
             </div>
-
-            {/* Selected template info */}
-            {selectedTemplate && (
-              <div className="p-3 rounded-lg bg-muted/50 text-sm">
-                <p className="font-medium mb-1">Tanlangan shablon:</p>
-                {selectedTemplate.defaultMaterial && (
-                  <p className="text-muted-foreground">Material: {selectedTemplate.defaultMaterial}</p>
-                )}
-                {selectedTemplate.defaultNotes && (
-                  <p className="text-muted-foreground mt-1">Izoh: {selectedTemplate.defaultNotes}</p>
-                )}
-              </div>
-            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCategoryModalOpen(false)}>
+            <Button variant="outline" onClick={() => setMebelModalOpen(false)}>
               Bekor qilish
             </Button>
-            <Button onClick={handleAddCategory} disabled={savingCategory || !newCategoryName.trim()}>
-              {savingCategory ? 'Saqlanmoqda...' : 'Qo\'shish'}
+            <Button onClick={handleAddMebel} disabled={savingMebel || !newMebelName.trim()}>
+              {savingMebel ? 'Saqlanmoqda...' : 'Qo\'shish'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1127,12 +1264,12 @@ export const ConstructorOrderDetailPage: React.FC = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>O'chirishni tasdiqlang</AlertDialogTitle>
             <AlertDialogDescription>
-              Bu amalni qaytarib bo'lmaydi. {deleteTarget?.type === 'category' ? 'Barcha detallar ham o\'chiriladi.' : ''}
+              Bu amalni qaytarib bo'lmaydi. Barcha detallar ham o'chiriladi.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteCategory} disabled={deleting}>
+            <AlertDialogAction onClick={handleDeleteMebel} disabled={deleting}>
               {deleting ? "O'chirilmoqda..." : "O'chirish"}
             </AlertDialogAction>
           </AlertDialogFooter>
