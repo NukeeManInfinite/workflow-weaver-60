@@ -92,6 +92,7 @@ export interface ContractCreateRequest {
   deliveryTerms: string;
   penaltyTerms: string;
   additionalNotes?: string;
+  deadline?: string; // Calculated from productionDurationDays
 }
 
 // PUT /api/Contracts/{id} - Update Request
