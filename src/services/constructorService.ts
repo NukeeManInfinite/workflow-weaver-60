@@ -30,16 +30,52 @@ const extractData = <T>(response: { data: ApiResponse<T> | T }): T => {
   return data as T;
 };
 
+// Normalize order data from various API field naming conventions
+const normalizeOrder = (data: any): ConstructorOrder => {
+  // Handle nested customer object or direct fields
+  const customer = data.customer || data.Customer || {};
+  
+  return {
+    id: data.id ?? data.Id,
+    orderNumber: data.orderNumber ?? data.OrderNumber ?? '',
+    contractNumber: data.contractNumber ?? data.ContractNumber ?? data.contract?.contractNumber ?? data.Contract?.ContractNumber,
+    customerName: data.customerName ?? data.CustomerName ?? customer.fullName ?? customer.FullName ?? customer.name ?? customer.Name ?? '',
+    customerPhone: data.customerPhone ?? data.CustomerPhone ?? customer.phoneNumber ?? customer.PhoneNumber ?? customer.phone ?? customer.Phone ?? '',
+    customerAddress: data.customerAddress ?? data.CustomerAddress ?? customer.address ?? customer.Address ?? '',
+    categoryName: data.categoryName ?? data.CategoryName,
+    categoryNames: data.categoryNames ?? data.CategoryNames,
+    categories: data.categories ?? data.Categories,
+    orderCategories: data.orderCategories ?? data.OrderCategories,
+    categoryIds: data.categoryIds ?? data.CategoryIds,
+    contract: data.contract ?? data.Contract,
+    status: data.status ?? data.Status ?? 'Created',
+    statusText: data.statusText ?? data.StatusText,
+    totalAmount: data.totalAmount ?? data.TotalAmount ?? 0,
+    deadline: data.deadline ?? data.Deadline ?? data.contract?.deadline ?? data.Contract?.Deadline,
+    createdAt: data.createdAt ?? data.CreatedAt ?? '',
+    updatedAt: data.updatedAt ?? data.UpdatedAt,
+    assignedAt: data.assignedAt ?? data.AssignedAt,
+    assignedConstructorId: data.assignedConstructorId ?? data.AssignedConstructorId,
+    constructorId: data.constructorId ?? data.ConstructorId,
+    constructorName: data.constructorName ?? data.ConstructorName,
+    furnitureTypes: data.furnitureTypes ?? data.FurnitureTypes,
+    furnitureTypesCount: data.furnitureTypesCount ?? data.FurnitureTypesCount,
+    imagesCount: data.imagesCount ?? data.ImagesCount,
+  };
+};
+
 export const constructorService = {
   // ============ ORDERS ============
   async getOrders(): Promise<ConstructorOrder[]> {
     const response = await apiClient.get('/Constructor/orders');
-    return extractData<ConstructorOrder[]>(response);
+    const data = extractData<any[]>(response);
+    return data.map(normalizeOrder);
   },
 
   async getOrderById(id: number): Promise<ConstructorOrder> {
     const response = await apiClient.get(`/Constructor/orders/${id}`);
-    return extractData<ConstructorOrder>(response);
+    const data = extractData<any>(response);
+    return normalizeOrder(data);
   },
 
   // ============ FURNITURE TYPES ============
